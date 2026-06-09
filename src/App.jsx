@@ -37,7 +37,24 @@ export default function App() {
 
   // Auth: ouvir mudanças de sessão
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+
+    if (code) {
+      // PKCE: troca explícita do code pelo token
+      supabase.auth.exchangeCodeForSession(window.location.href)
+        .then(({ data, error }) => {
+          if (!error && data.session) {
+            window.history.replaceState({}, '', window.location.pathname);
+            setSession(data.session);
+          } else {
+            setSession(null);
+          }
+        });
+    } else {
+      supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => setSession(s ?? null));
     return () => subscription.unsubscribe();
   }, []);
