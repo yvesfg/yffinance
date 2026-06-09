@@ -1,10 +1,12 @@
 import { supabase } from './lib/supabaseClient.js';
 
-// Helper REST compatível com código existente, usa o cliente autenticado
+const SB_URL = import.meta.env.VITE_SB_URL || 'https://nxcpxnbkmdwumbdsmxpf.supabase.co';
+const SB_KEY = import.meta.env.VITE_SB_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im54Y3B4bmJrbWR3dW1iZHNteHBmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxMjMwMDEsImV4cCI6MjA2NDY5OTAwMX0.SX9G4PEpFR0b9jlZAAmVB3xkZR6YhIAYQl1W2Rw5Rno';
+
 export async function sb(path, method = 'GET', data = null, params = '') {
-  const url = `${supabase.supabaseUrl}/rest/v1/${path}${params}`;
-  const session = (await supabase.auth.getSession()).data.session;
-  const token = session?.access_token || supabase.supabaseKey;
+  const url = `${SB_URL}/rest/v1/${path}${params}`;
+  const { data: authData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+  const token = authData?.session?.access_token || SB_KEY;
 
   const r = await fetch(url, {
     method,
