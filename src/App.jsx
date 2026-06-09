@@ -41,20 +41,18 @@ export default function App() {
     const code = params.get('code');
 
     if (code) {
-      // PKCE: troca explícita do code pelo token
-      supabase.auth.exchangeCodeForSession(window.location.href)
+      // PKCE: exchangeCodeForSession recebe só o code, não a URL inteira
+      supabase.auth.exchangeCodeForSession(code)
         .then(({ data, error }) => {
-          if (!error && data.session) {
+          if (!error && data?.session) {
             window.history.replaceState({}, '', window.location.pathname);
-            setSession(data.session);
-          } else {
-            setSession(null);
           }
+          // Em qualquer caso, deixa o onAuthStateChange resolver o estado
         });
-    } else {
-      supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
     }
 
+    // Sempre busca sessão atual e observa mudanças
+    supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => setSession(s ?? null));
     return () => subscription.unsubscribe();
   }, []);
