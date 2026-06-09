@@ -37,6 +37,7 @@ export default function App() {
 
   // Auth: ouvir mudanças de sessão
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => setSession(s ?? null));
     return () => subscription.unsubscribe();
   }, []);

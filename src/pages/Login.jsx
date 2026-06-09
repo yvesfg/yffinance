@@ -6,12 +6,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
 
-  // Clear stale Supabase auth state (PKCE leftovers, expired sessions)
-  React.useEffect(() => {
-    Object.keys(localStorage)
-      .filter(k => k.startsWith('sb-') || k.includes('supabase.auth'))
-      .forEach(k => localStorage.removeItem(k));
-  }, []);
 
   const handleGoogle = async () => {
     setLoading(true); setError('');

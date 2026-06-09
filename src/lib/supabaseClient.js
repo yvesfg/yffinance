@@ -7,6 +7,6 @@ export const supabase = createClient(SB_URL, SB_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    flowType: 'implicit',
+    flowType: 'pkce',
   },
 });
