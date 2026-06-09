@@ -1,13 +1,18 @@
-import { SB_URL, SB_KEY } from './constants.js';
+import { supabase } from './lib/supabaseClient.js';
 
-export async function sb(table, method = 'GET', data = null, params = '') {
-  const r = await fetch(`${SB_URL}/rest/v1/${table}${params}`, {
+// Helper REST compatível com código existente, usa o cliente autenticado
+export async function sb(path, method = 'GET', data = null, params = '') {
+  const url = `${supabase.supabaseUrl}/rest/v1/${path}${params}`;
+  const session = (await supabase.auth.getSession()).data.session;
+  const token = session?.access_token || supabase.supabaseKey;
+
+  const r = await fetch(url, {
     method,
     headers: {
-      apikey: SB_KEY,
-      Authorization: `Bearer ${SB_KEY}`,
+      apikey: supabase.supabaseKey,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
-      Prefer: method === 'POST' ? 'return=representation' : method === 'PATCH' ? 'return=representation' : '',
+      Prefer: method === 'POST' || method === 'PATCH' ? 'return=representation' : '',
     },
     body: data ? JSON.stringify(data) : undefined,
   });

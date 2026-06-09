@@ -1,5 +1,6 @@
 import React from 'react';
 import { T } from '../constants.js';
+import { supabase } from '../lib/supabaseClient.js';
 
 const NAV = [
   { id: 'dashboard',   label: 'Dashboard',     icon: <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>, tag: null },
@@ -33,18 +34,22 @@ function Badge({ text }) {
   );
 }
 
-export default function Sidebar({ pag, setPag, perfil, setPerfil, collapsed, setCollapsed, onClose, isMobile }) {
-  const W = collapsed && !isMobile ? 56 : 228;
+export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOpen, onClose }) {
+  const [collapsed, setCollapsed] = React.useState(() => localStorage.getItem('yf_sidebar') === '1');
+  const isMobile = mobileOpen !== undefined && window.innerWidth < 768;
+  const W = collapsed && !mobileOpen ? 56 : 228;
+
+  const handleCollapse = (v) => { setCollapsed(v); localStorage.setItem('yf_sidebar', v ? '1' : '0'); };
 
   const handleNav = (id) => {
-    setPag(id);
-    if (isMobile) onClose();
+    setPagina(id);
+    if (mobileOpen) onClose();
   };
 
   return (
     <>
       {/* Overlay mobile */}
-      {isMobile && (
+      {mobileOpen && (
         <div onClick={onClose} style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)',
           zIndex: 199, backdropFilter: 'blur(4px)',
@@ -56,9 +61,9 @@ export default function Sidebar({ pag, setPag, perfil, setPerfil, collapsed, set
         background: T.bg2, borderRight: `1px solid ${T.border}`,
         display: 'flex', flexDirection: 'column', height: '100vh',
         overflowY: 'auto', overflowX: 'hidden',
-        position: isMobile ? 'fixed' : 'relative',
-        left: isMobile ? 0 : 'auto', top: isMobile ? 0 : 'auto',
-        zIndex: isMobile ? 200 : 'auto',
+        position: mobileOpen ? 'fixed' : 'relative',
+        left: mobileOpen ? 0 : 'auto', top: mobileOpen ? 0 : 'auto',
+        zIndex: mobileOpen ? 200 : 'auto',
         transition: 'width .2s ease, min-width .2s ease',
         flexShrink: 0,
       }}>
@@ -66,16 +71,16 @@ export default function Sidebar({ pag, setPag, perfil, setPerfil, collapsed, set
         {/* Header / Brand */}
         <div style={{ padding: '18px 16px 14px', borderBottom: `1px solid ${T.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            {(!collapsed || isMobile) && (
+            {(!collapsed || mobileOpen) && (
               <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 16, fontWeight: 800, letterSpacing: '-.5px', color: T.txt }}>
                 YF<span style={{ color: T.green }}>Finance</span>
               </div>
             )}
-            {collapsed && !isMobile && (
+            {collapsed && !mobileOpen && (
               <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 14, fontWeight: 800, color: T.green, margin: '0 auto' }}>YF</div>
             )}
-            {!isMobile && (
-              <button onClick={() => setCollapsed(!collapsed)} style={{
+            {!mobileOpen && (
+              <button onClick={() => handleCollapse(!collapsed)} style={{
                 background: 'transparent', border: 'none', color: T.txt3,
                 cursor: 'pointer', padding: 4, borderRadius: T.radius3,
                 display: 'flex', alignItems: 'center',
@@ -110,13 +115,13 @@ export default function Sidebar({ pag, setPag, perfil, setPerfil, collapsed, set
             if (item.sep) return (
               <div key={item.id} style={{ height: 1, background: T.border, margin: '6px 0' }} />
             );
-            const active = pag === item.id;
+            const active = pagina === item.id;
             return (
               <button key={item.id} onClick={() => handleNav(item.id)} style={{
                 display: 'flex', alignItems: 'center',
-                gap: collapsed && !isMobile ? 0 : 10,
-                padding: collapsed && !isMobile ? '9px 0' : '9px 16px',
-                justifyContent: collapsed && !isMobile ? 'center' : 'flex-start',
+                gap: collapsed && !mobileOpen ? 0 : 10,
+                padding: collapsed && !mobileOpen ? '9px 0' : '9px 16px',
+                justifyContent: collapsed && !mobileOpen ? 'center' : 'flex-start',
                 width: '100%', background: active ? `rgba(5,212,155,.06)` : 'transparent',
                 border: 'none', borderLeft: `2px solid ${active ? T.green : 'transparent'}`,
                 color: active ? T.green : T.txt2, cursor: 'pointer',
@@ -124,15 +129,38 @@ export default function Sidebar({ pag, setPag, perfil, setPerfil, collapsed, set
                 transition: 'all .12s', margin: '1px 0',
               }}>
                 <Icon color={active ? T.green : T.txt2} size={16}>{item.icon}</Icon>
-                {(!collapsed || isMobile) && <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>}
-                {(!collapsed || isMobile) && item.tag && <Badge text={item.tag} />}
+                {(!collapsed || mobileOpen) && <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>}
+                {(!collapsed || mobileOpen) && item.tag && <Badge text={item.tag} />}
               </button>
             );
           })}
         </div>
 
         {/* Footer */}
-        <div style={{ padding: '12px 16px', borderTop: `1px solid ${T.border}` }}>
+        <div style={{ padding: '12px 16px', borderTop: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Botão logout */}
+          <button
+            onClick={() => supabase.auth.signOut()}
+            title="Sair"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: collapsed && !mobileOpen ? '7px 0' : '7px 10px',
+              justifyContent: collapsed && !mobileOpen ? 'center' : 'flex-start',
+              width: '100%', background: 'transparent', border: `1px solid ${T.border2}`,
+              borderRadius: T.radius3, color: T.txt3, cursor: 'pointer',
+              fontSize: 12, fontFamily: "'DM Sans', sans-serif", transition: 'all .12s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = T.red; e.currentTarget.style.color = T.red; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = T.border2; e.currentTarget.style.color = T.txt3; }}
+          >
+            <Icon color="currentColor" size={14}>
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </Icon>
+            {(!collapsed || mobileOpen) && <span>Sair</span>}
+          </button>
+
           {(!collapsed || isMobile) ? (
             <div style={{ fontSize: 10, color: T.txt3, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
               by YFGroup

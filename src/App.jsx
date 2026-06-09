@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { T } from './constants.js';
 import { sb } from './supabase.js';
+import { supabase } from './lib/supabaseClient.js';
 
+import Login from './pages/Login.jsx';
 import Splash from './pages/Splash.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Extrato from './pages/Extrato.jsx';
@@ -22,6 +24,7 @@ import ModalCartao from './modals/ModalCartao.jsx';
 const hoje = () => new Date().toISOString().slice(0, 7);
 
 export default function App() {
+  const [session, setSession]     = useState(undefined); // undefined = carregando
   const [perfil, setPerfil]       = useState(() => localStorage.getItem('yf_perfil') || null);
   const [pagina, setPagina]       = useState('dashboard');
   const [mesAtual, setMesAtual]   = useState(hoje);
@@ -31,6 +34,13 @@ export default function App() {
   const [contas, setContas]   = useState([]);
   const [cats, setCats]       = useState([]);
   const [cartoes, setCartoes] = useState([]);
+
+  // Auth: ouvir mudanças de sessão
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    return () => subscription.unsubscribe();
+  }, []);
 
   const [toast, setToast]         = useState(null);
   const [editTx, setEditTx]       = useState(null);
@@ -139,6 +149,17 @@ export default function App() {
     } catch { showToast('Erro ao excluir cartão', 'error'); }
   };
 
+  // Aguardar verificação de sessão
+  if (session === undefined) return (
+    <div style={{ position:'fixed', inset:0, background:T.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:T.txt3 }}>carregando...</div>
+    </div>
+  );
+
+  // Não autenticado → tela de login
+  if (!session) return <Login />;
+
+  // Autenticado mas sem perfil → splash de seleção
   if (!perfil) return <Splash onSelect={selectPerfil} />;
 
   const pageProps = { txs, contas, cats, cartoes, mesAtual, setMesAtual, loadTxs, perfil };
