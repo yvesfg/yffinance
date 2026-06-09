@@ -58,7 +58,7 @@ export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats
     if (!data || !valor || !desc.trim()) return;
     onSave({
       tipo, data, valor: parseFloat(valor), descricao: desc.trim(),
-      conta_id: tipo === 'cartao' ? null : contaId || null,
+      conta_id: contaId || null,
       cartao_id: tipo === 'cartao' ? cartaoId || null : null,
       conta_destino_id: tipo === 'transferencia' ? destId || null : null,
       categoria_id: catId || null, status, observacao: obs || null,

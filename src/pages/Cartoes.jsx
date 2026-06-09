@@ -9,7 +9,7 @@ function BankLogo({ slug, size = 28 }) {
 }
 
 export default function Cartoes({ cartoes, txs, contas, onNew, onEdit, onDelete }) {
-  const gastoCartao = id => txs.filter(t => t.conta_id === id && t.tipo === 'cartao').reduce((s, t) => s + Number(t.valor), 0);
+  const gastoCartao = id => txs.filter(t => (t.cartao_id === id || t.conta_id === id) && t.tipo === 'cartao').reduce((s, t) => s + Number(t.valor), 0);
 
   return (
     <div style={{ padding:'24px 28px', fontFamily:"'DM Sans',sans-serif" }}>
