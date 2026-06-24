@@ -1,12 +1,7 @@
 import React from 'react';
 import { T, BANCOS } from '../constants.js';
 import { fmt } from '../lib/formatters.js';
-
-function BankLogo({ slug, size = 32 }) {
-  const b = BANCOS[slug];
-  if (!b?.logo) return <div style={{ width:size, height:size, borderRadius:size*.28, background:T.bg3, border:`1px solid ${T.border2}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:T.txt2 }}>{(slug||'?')[0].toUpperCase()}</div>;
-  return <img src={b.logo} width={size} height={size} style={{ borderRadius:size*.28, background:'white', padding:3, objectFit:'contain' }} onError={e => e.target.style.display='none'} alt={b.nome} />;
-}
+import BankLogo from '../components/BankLogo.jsx';
 
 export default function Contas({ contas, txs, onNew, onEdit, onDelete }) {
   const calcSaldo = id => {
@@ -50,7 +45,7 @@ export default function Contas({ contas, txs, onNew, onEdit, onDelete }) {
                   <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:`linear-gradient(90deg,${c.cor||banco.cor},transparent)` }} />
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                      <BankLogo slug={c.banco_slug} size={36} />
+                      <BankLogo slug={c.banco_slug} url={c.logo_url} size={36} />
                       <div>
                         <div style={{ fontSize:14, fontWeight:600, color:T.txt }}>{c.nome}</div>
                         <div style={{ fontSize:11, color:T.txt3 }}>{TIPOS_LABEL[c.tipo] || c.tipo} · {banco.nome}</div>

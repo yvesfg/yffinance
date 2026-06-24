@@ -8,17 +8,26 @@ export async function sb(path, method = 'GET', data = null, params = '') {
   const { data: authData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
   const token = authData?.session?.access_token || SB_KEY;
 
+  const headers = {
+    apikey: SB_KEY,
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+  if (method === 'POST' || method === 'PATCH') headers.Prefer = 'return=representation';
+
   const r = await fetch(url, {
     method,
-    headers: {
-      apikey: SB_KEY,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      Prefer: method === 'POST' || method === 'PATCH' ? 'return=representation' : '',
-    },
+    headers,
     body: data ? JSON.stringify(data) : undefined,
   });
-  if (!r.ok) throw new Error(await r.text());
-  if (r.status === 204) return null;
-  return r.json();
+
+  const text = await r.text();
+  if (!r.ok) {
+    // Tenta extrair a mensagem amigável do PostgREST ({ message, hint, details })
+    let msg = text;
+    try { const j = JSON.parse(text); msg = j.message || j.hint || j.details || text; } catch {}
+    throw new Error(msg || `${r.status} ${r.statusText}`);
+  }
+  // DELETE e respostas vazias não têm corpo JSON
+  return text ? JSON.parse(text) : null;
 }

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { T } from '../constants.js';
+import { useModalKeys } from '../lib/useModalKeys.js';
+import ContaSelect from '../components/ContaSelect.jsx';
 
 const TIPOS = [
   { v: 'despesa',      l: '↓ Despesa',    c: T.red    },
@@ -19,7 +21,7 @@ function fg(label, children) {
 
 const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '9px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans', sans-serif", fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' };
 
-export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats, editData }) {
+export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats, onCreateConta, editData }) {
   const [tipo, setTipo]   = useState('despesa');
   const [data, setData]   = useState('');
   const [valor, setValor] = useState('');
@@ -30,8 +32,10 @@ export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats
   const [catId, setCatId]       = useState('');
   const [status, setStatus]     = useState('efetivado');
   const [obs, setObs]           = useState('');
+  const [busy, setBusy]         = useState(false);
 
   useEffect(() => {
+    setBusy(false);
     if (editData) {
       setTipo(editData.tipo || 'despesa');
       setData(editData.data || '');
@@ -50,20 +54,27 @@ export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats
     }
   }, [open, editData]);
 
-  if (!open) return null;
-
   const catsFilt = cats.filter(c => c.tipo === (tipo === 'cartao' ? 'despesa' : tipo === 'transferencia' ? 'transferencia' : tipo));
 
-  const handleSave = () => {
-    if (!data || !valor || !desc.trim()) return;
-    onSave({
-      tipo, data, valor: parseFloat(valor), descricao: desc.trim(),
-      conta_id: contaId || null,
-      cartao_id: tipo === 'cartao' ? cartaoId || null : null,
-      conta_destino_id: tipo === 'transferencia' ? destId || null : null,
-      categoria_id: catId || null, status, observacao: obs || null,
-    });
+  const handleSave = async () => {
+    if (!data || !valor || !desc.trim() || busy) return;
+    setBusy(true);
+    try {
+      await onSave({
+        tipo, data, valor: parseFloat(valor), descricao: desc.trim(),
+        conta_id: contaId || null,
+        cartao_id: tipo === 'cartao' ? cartaoId || null : null,
+        conta_destino_id: tipo === 'transferencia' ? destId || null : null,
+        categoria_id: catId || null, status, observacao: obs || null,
+      });
+    } finally {
+      setBusy(false);
+    }
   };
+
+  useModalKeys(open, { onClose, onEnter: handleSave });
+
+  if (!open) return null;
 
   return (
     <div onClick={onClose} style={{ display:'flex', position:'fixed', inset:0, background:'rgba(0,0,0,.65)', zIndex:1000, backdropFilter:'blur(6px)', justifyContent:'center', alignItems:'center' }}>
@@ -88,9 +99,9 @@ export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
           {fg('Data', <input type="date" style={inp} value={data} onChange={e => setData(e.target.value)} />)}
           {fg('Valor (R$)', <input type="number" step="0.01" style={inp} value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" />)}
-          {tipo !== 'cartao' && fg('Conta', <select style={inp} value={contaId} onChange={e => setContaId(e.target.value)}>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>)}
+          {tipo !== 'cartao' && fg('Conta', <ContaSelect value={contaId} onChange={setContaId} contas={contas} onCreate={onCreateConta} />)}
           {tipo === 'cartao' && fg('Cartão', <select style={inp} value={cartaoId} onChange={e => setCartaoId(e.target.value)}>{cartoes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>)}
-          {tipo === 'transferencia' && fg('Conta Destino', <select style={inp} value={destId} onChange={e => setDestId(e.target.value)}>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>)}
+          {tipo === 'transferencia' && fg('Conta Destino', <ContaSelect value={destId} onChange={setDestId} contas={contas} onCreate={onCreateConta} allowEmpty emptyLabel="Selecionar conta" />)}
           {fg('Categoria', <select style={inp} value={catId} onChange={e => setCatId(e.target.value)}><option value="">Sem categoria</option>{catsFilt.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}</select>)}
           <div style={{ gridColumn:'1/-1' }}>{fg('Descrição', <input type="text" style={inp} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ex: Almoço, Salário..." />)}</div>
           {fg('Status', <select style={inp} value={status} onChange={e => setStatus(e.target.value)}><option value="efetivado">Efetivado</option><option value="pendente">Pendente</option></select>)}
@@ -99,7 +110,7 @@ export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats
 
         <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:20, paddingTop:16, borderTop:`1px solid ${T.border}` }}>
           <button onClick={onClose} style={{ padding:'9px 18px', background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, borderRadius:T.radius2, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13 }}>Cancelar</button>
-          <button onClick={handleSave} style={{ padding:'9px 18px', background:T.green, color:'#000', borderRadius:T.radius2, border:'none', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600 }}>Salvar</button>
+          <button onClick={handleSave} disabled={busy} style={{ padding:'9px 18px', background: busy ? T.bg3 : T.green, color: busy ? T.txt3 : '#000', borderRadius:T.radius2, border:'none', cursor: busy ? 'not-allowed' : 'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600 }}>{busy ? 'Salvando...' : 'Salvar'}</button>
         </div>
       </div>
     </div>

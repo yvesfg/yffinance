@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { T } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
+import { useModalKeys } from '../lib/useModalKeys.js';
 
 const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '7px 10px', borderRadius: T.radius2, fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box' };
 
@@ -21,6 +22,8 @@ export default function ModalParcelas({ open, parcelas = [], onConfirm, onClose 
   React.useEffect(() => {
     setItems(parcelas.map(p => ({ ...p })));
   }, [parcelas]);
+
+  useModalKeys(open, { onClose, onEnter: () => onConfirm(items) });
 
   if (!open || !parcelas.length) return null;
 

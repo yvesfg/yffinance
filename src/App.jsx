@@ -111,14 +111,14 @@ export default function App() {
       await loadTxs();
       setModalLanc(false); setEditTx(null);
       showToast(editTx ? 'Lançamento atualizado' : 'Lançamento salvo');
-    } catch { showToast('Erro ao salvar lançamento', 'error'); }
+    } catch (e) { showToast('Erro ao salvar lançamento: ' + (e.message || e), 'error'); }
   };
 
   const deleteTx = async id => {
     try {
       await sb('cf_transacoes', 'DELETE', null, `id=eq.${id}`);
       await loadTxs(); showToast('Lançamento excluído');
-    } catch { showToast('Erro ao excluir', 'error'); }
+    } catch (e) { showToast('Erro ao excluir: ' + (e.message || e), 'error'); }
   };
 
   const openNewTx = () => { setEditTx(null); setModalLanc(true); };
@@ -134,14 +134,24 @@ export default function App() {
       }
       await loadContas(); setModalConta(false); setEditConta(null);
       showToast(editConta ? 'Conta atualizada' : 'Conta criada');
-    } catch { showToast('Erro ao salvar conta', 'error'); }
+    } catch (e) { showToast('Erro ao salvar conta: ' + (e.message || e), 'error'); }
+  };
+
+  // Criação rápida de conta a partir de um <select> (ContaSelect). Salva direto
+  // na base com defaults seguros e retorna a conta criada para já selecioná-la.
+  const createContaQuick = async nome => {
+    const novo = await sb('cf_contas', 'POST', { nome: nome.trim(), banco: 'Outro', banco_slug: 'outro', tipo: 'corrente', saldo_inicial: 0, cor: '#4d8eff', perfil });
+    await loadContas();
+    const conta = Array.isArray(novo) ? novo[0] : novo;
+    showToast(`Conta "${conta?.nome || nome}" criada`);
+    return conta;
   };
 
   const deleteConta = async id => {
     try {
       await sb('cf_contas', 'DELETE', null, `id=eq.${id}`);
       await loadContas(); showToast('Conta excluída');
-    } catch { showToast('Erro ao excluir conta', 'error'); }
+    } catch (e) { showToast('Erro ao excluir conta: ' + (e.message || e), 'error'); }
   };
 
   // Cartões
@@ -154,14 +164,14 @@ export default function App() {
       }
       await loadCartoes(); setModalCartao(false); setEditCartao(null);
       showToast(editCartao ? 'Cartão atualizado' : 'Cartão criado');
-    } catch { showToast('Erro ao salvar cartão', 'error'); }
+    } catch (e) { showToast('Erro ao salvar cartão: ' + (e.message || e), 'error'); }
   };
 
   const deleteCartao = async id => {
     try {
       await sb('cf_cartoes', 'DELETE', null, `id=eq.${id}`);
       await loadCartoes(); showToast('Cartão excluído');
-    } catch { showToast('Erro ao excluir cartão', 'error'); }
+    } catch (e) { showToast('Erro ao excluir cartão: ' + (e.message || e), 'error'); }
   };
 
   // Aguardar verificação de sessão
@@ -186,7 +196,7 @@ export default function App() {
       case 'lancamentos': return <Lancamentos {...pageProps} onNew={openNewTx} onEdit={openEditTx} onDelete={deleteTx} />;
       case 'contas':      return <Contas contas={contas} txs={txs} onNew={() => { setEditConta(null); setModalConta(true); }} onEdit={c => { setEditConta(c); setModalConta(true); }} onDelete={deleteConta} />;
       case 'cartoes':     return <Cartoes cartoes={cartoes} txs={txs} contas={contas} onNew={() => { setEditCartao(null); setModalCartao(true); }} onEdit={c => { setEditCartao(c); setModalCartao(true); }} onDelete={deleteCartao} />;
-      case 'importar':    return <Importar contas={contas} cats={cats} perfil={perfil} onToast={showToast} onDone={() => { loadTxs(); setPagina('extrato'); }} />;
+      case 'importar':    return <Importar contas={contas} cats={cats} perfil={perfil} onToast={showToast} onCreateConta={createContaQuick} onDone={() => { loadTxs(); setPagina('extrato'); }} />;
       case 'pluggy':      return <Pluggy contas={contas} cats={cats} perfil={perfil} onToast={showToast} onDone={() => { loadTxs(); setPagina('extrato'); }} />;
       default:            return <Dashboard {...pageProps} />;
     }
@@ -222,6 +232,7 @@ export default function App() {
         contas={contas}
         cats={cats}
         cartoes={cartoes}
+        onCreateConta={createContaQuick}
         editData={editTx}
       />
 
@@ -237,6 +248,7 @@ export default function App() {
         onClose={() => { setModalCartao(false); setEditCartao(null); }}
         onSave={saveCartao}
         contas={contas}
+        onCreateConta={createContaQuick}
         editData={editCartao}
       />
 

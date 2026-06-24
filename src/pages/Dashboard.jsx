@@ -1,6 +1,8 @@
-import React from 'react';
-import { T, BANCOS, MESES } from '../constants.js';
+import React, { useState, useEffect } from 'react';
+import { T, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
+import { sb } from '../supabase.js';
+import BankLogo from '../components/BankLogo.jsx';
 
 function StatCard({ label, value, color, sub, accent }) {
   return (
@@ -13,16 +15,41 @@ function StatCard({ label, value, color, sub, accent }) {
   );
 }
 
-function BankLogo({ slug, size = 28 }) {
-  const b = BANCOS[slug];
-  if (!b?.logo) return <div style={{ width: size, height: size, borderRadius: size * .28, background: T.bg3, border: `1px solid ${T.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: T.txt2 }}>{(slug || '?')[0].toUpperCase()}</div>;
-  return <img src={b.logo} width={size} height={size} style={{ borderRadius: size * .28, background: 'white', padding: 3, objectFit: 'contain' }} onError={e => e.target.style.display = 'none'} alt={b.nome} />;
+// Mês seguinte a partir de "YYYY-MM"
+function proximoMes(ym) {
+  const [a, m] = ym.split('-').map(Number);
+  const dt = new Date(a, m, 1); // m (0-based+1) = próximo mês
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
 }
 
 export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, loadTxs, perfil }) {
   const rec  = txs.filter(t => t.tipo === 'receita').reduce((s, t) => s + Number(t.valor), 0);
   const desp = txs.filter(t => t.tipo === 'despesa').reduce((s, t) => s + Number(t.valor), 0);
   const cart = txs.filter(t => t.tipo === 'cartao').reduce((s, t) => s + Number(t.valor), 0);
+  const saidas    = desp + cart;
+  const resultado = rec - saidas;
+
+  // Previsão do próximo mês: lançamentos já agendados/parcelados que caem no mês seguinte
+  const [prev, setPrev] = useState({ saidas: 0, entradas: 0, qtd: 0 });
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try {
+        const pm = proximoMes(mesAtual);
+        const [a, m] = pm.split('-');
+        const inicio = `${a}-${m}-01`;
+        const fim = new Date(Number(a), Number(m), 0).toISOString().slice(0, 10);
+        const data = await sb(`cf_transacoes?perfil=eq.${perfil}&data=gte.${inicio}&data=lte.${fim}&select=tipo,valor`) || [];
+        if (cancel) return;
+        const s = data.filter(t => t.tipo === 'despesa' || t.tipo === 'cartao').reduce((acc, t) => acc + Number(t.valor), 0);
+        const e = data.filter(t => t.tipo === 'receita').reduce((acc, t) => acc + Number(t.valor), 0);
+        setPrev({ saidas: s, entradas: e, qtd: data.length });
+      } catch {
+        if (!cancel) setPrev({ saidas: 0, entradas: 0, qtd: 0 });
+      }
+    })();
+    return () => { cancel = true; };
+  }, [mesAtual, perfil, txs.length]);
 
   const calcSaldo = id => {
     const c = contas.find(c => c.id === id); if (!c) return 0;
@@ -71,11 +98,37 @@ export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, lo
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 }}>
-        <StatCard label="Receitas"    value={fmt(rec)}      color={T.green}  accent={T.green}  sub={`${txs.filter(t=>t.tipo==='receita').length} lançamentos`} />
-        <StatCard label="Despesas"    value={fmt(desp)}     color={T.red}    accent={T.red}    sub={`${txs.filter(t=>t.tipo==='despesa').length} lançamentos`} />
-        <StatCard label="Cartões"     value={fmt(cart)}     color={T.purple} accent={T.purple} sub={`${txs.filter(t=>t.tipo==='cartao').length} lançamentos`} />
-        <StatCard label="Saldo Total" value={fmt(saldoTotal)} color={T.gold} accent={T.gold}  sub={`${contas.length} contas`} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 14 }}>
+        <StatCard label="Entradas"        value={fmt(rec)}        color={T.green}  accent={T.green}  sub={`${txs.filter(t=>t.tipo==='receita').length} receitas`} />
+        <StatCard label="Saídas"          value={fmt(saidas)}     color={T.red}    accent={T.red}    sub={`despesas ${fmt(desp)} · cartão ${fmt(cart)}`} />
+        <StatCard label="Resultado do mês" value={(resultado>=0?'+':'')+fmt(resultado)} color={resultado>=0?T.green:T.red} accent={resultado>=0?T.green:T.red} sub={resultado>=0?'sobra no mês':'déficit no mês'} />
+        <StatCard label="Saldo Total"     value={fmt(saldoTotal)} color={T.gold}   accent={T.gold}   sub={`${contas.length} contas`} />
+      </div>
+
+      {/* Previsão próximo mês */}
+      <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap', background: T.bg2, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: '14px 18px', marginBottom: 20 }}>
+        <div style={{ fontSize: 10, color: T.txt3, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>
+          Previsão {MESES[(mes % 12)]} {mes === 12 ? ano + 1 : ano}
+        </div>
+        <div style={{ flex: 1, minWidth: 180, display: 'flex', gap: 22, flexWrap: 'wrap' }}>
+          <div>
+            <span style={{ fontSize: 11, color: T.txt3 }}>Saídas previstas </span>
+            <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 14, color: T.red }}>{fmt(prev.saidas)}</span>
+          </div>
+          {prev.entradas > 0 && (
+            <div>
+              <span style={{ fontSize: 11, color: T.txt3 }}>Entradas previstas </span>
+              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 14, color: T.green }}>{fmt(prev.entradas)}</span>
+            </div>
+          )}
+          <div>
+            <span style={{ fontSize: 11, color: T.txt3 }}>Resultado previsto </span>
+            <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 14, color: (prev.entradas - prev.saidas) >= 0 ? T.green : T.red }}>{((prev.entradas - prev.saidas) >= 0 ? '+' : '') + fmt(prev.entradas - prev.saidas)}</span>
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: T.txt3 }}>
+          {prev.qtd > 0 ? `${prev.qtd} lançamentos já agendados (parcelas/recorrentes)` : 'sem lançamentos agendados ainda'}
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
@@ -88,7 +141,7 @@ export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, lo
               const s = calcSaldo(c.id);
               return (
                 <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:`1px solid ${T.border}` }}>
-                  <BankLogo slug={c.banco_slug} size={26} />
+                  <BankLogo slug={c.banco_slug} url={c.logo_url} size={26} />
                   <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: T.txt, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.nome}</div>
                   <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color: s >= 0 ? T.green : T.red }}>{fmt(s)}</div>
                 </div>

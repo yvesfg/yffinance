@@ -1,11 +1,26 @@
 import React, { useState, useRef } from 'react';
-import { T, BANCOS } from '../constants.js';
+import { T, BANCOS, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { parseOFX, parseCSV } from '../lib/parsers.js';
 import { matchTransf } from '../lib/dedup.js';
 import { detectParcela, gerarParcelas, jaExisteParcela, uuid } from '../lib/parcelas.js';
 import { sb } from '../supabase.js';
 import ModalParcelas from '../modals/ModalParcelas.jsx';
+import ContaSelect from '../components/ContaSelect.jsx';
+
+// Lê um arquivo como texto (Promise)
+const lerArquivo = f => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = ev => resolve(ev.target.result);
+  reader.onerror = reject;
+  reader.readAsText(f, 'utf-8');
+});
+
+// "YYYY-MM" → "Mai/2026"
+const rotuloMes = ym => {
+  const [a, m] = ym.split('-');
+  return `${MESES[Number(m) - 1]}/${a}`;
+};
 
 const inp = {
   background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt,
@@ -13,11 +28,11 @@ const inp = {
   fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box',
 };
 
-export default function Importar({ contas, cats, perfil, onToast, onDone }) {
+export default function Importar({ contas, cats, perfil, onToast, onCreateConta, onDone }) {
   const [contaId, setContaId]     = useState('');
   const [banco, setBanco]         = useState('inter');
-  const [arquivo, setArquivo]     = useState(null);
-  const [txsParsed, setTxsParsed] = useState([]);   // todas as txs do arquivo
+  const [arquivos, setArquivos]   = useState([]);   // nomes dos arquivos carregados
+  const [txsParsed, setTxsParsed] = useState([]);   // todas as txs (de todos os arquivos)
   const [preview, setPreview]     = useState([]);    // primeiras 10 para exibição
   const [importando, setImportando] = useState(false);
   const [resultado, setResultado]   = useState(null);
@@ -25,23 +40,33 @@ export default function Importar({ contas, cats, perfil, onToast, onDone }) {
   const [parcelasDetect, setParcelasDetect] = useState([]);
   const fileRef = useRef();
 
-  const handleFile = e => {
-    const f = e.target.files[0]; if (!f) return;
-    setArquivo(f); setPreview([]); setResultado(null); setTxsParsed([]);
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const txt = ev.target.result;
+  // Meses distintos detectados a partir das datas das transações
+  const mesesDetectados = [...new Set(txsParsed.map(t => (t.data || '').slice(0, 7)).filter(Boolean))].sort();
+
+  const handleFile = async e => {
+    const files = [...e.target.files]; if (!files.length) return;
+    setResultado(null);
+    try {
+      let todas = [];
+      const nomes = [];
+      for (const f of files) {
+        const txt = await lerArquivo(f);
         const result = f.name.toLowerCase().endsWith('.ofx') ? parseOFX(txt) : parseCSV(txt);
         const txs = Array.isArray(result) ? result : (result?.txs || []);
-        if (!txs.length) { onToast('Nenhuma transação encontrada no arquivo', 'error'); return; }
-        setTxsParsed(txs);
-        setPreview(txs.slice(0, 10));
-      } catch {
-        onToast('Erro ao ler arquivo. Verifique o formato.', 'error');
+        nomes.push({ nome: f.name, qtd: txs.length });
+        todas = todas.concat(txs);
       }
-    };
-    reader.readAsText(f, 'utf-8');
+      if (!todas.length) { onToast('Nenhuma transação encontrada nos arquivos', 'error'); return; }
+      // Ordena por data para visualização coerente entre meses
+      todas.sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+      setArquivos(nomes);
+      setTxsParsed(todas);
+      setPreview(todas.slice(0, 10));
+    } catch {
+      onToast('Erro ao ler arquivo(s). Verifique o formato.', 'error');
+    } finally {
+      if (fileRef.current) fileRef.current.value = ''; // permite re-selecionar os mesmos arquivos
+    }
   };
 
   // Etapa 1: usuário clica Importar → detectar parcelas e mostrar modal se houver
@@ -139,9 +164,18 @@ export default function Importar({ contas, cats, perfil, onToast, onDone }) {
         salvos++;
       }
 
+      // Mantém apenas colunas reais de cf_transacoes (remove _sel e outros auxiliares)
+      const COLS = ['data', 'tipo', 'descricao', 'valor', 'conta_id', 'conta_destino_id', 'categoria_id', 'status', 'origem', 'observacao', 'perfil', 'parcela_atual', 'parcela_total', 'parcela_grupo', 'descricao_base', 'cartao_id'];
+      const limpar = tx => {
+        const o = {};
+        for (const k of COLS) if (tx[k] !== undefined && tx[k] !== '') o[k] = tx[k];
+        o.origem = 'importacao';
+        return o;
+      };
+
       // Salvar em lote (sequencial para não estourar rate limit)
       for (const tx of txsParaSalvar) {
-        await sb('cf_transacoes', 'POST', tx);
+        await sb('cf_transacoes', 'POST', limpar(tx));
       }
 
       setResultado({ salvos, duplic, parcelasNovas });
@@ -167,10 +201,7 @@ export default function Importar({ contas, cats, perfil, onToast, onDone }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
           <div>
             <label style={{ fontSize: 11, color: T.txt3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 5 }}>Conta</label>
-            <select style={inp} value={contaId} onChange={e => setContaId(e.target.value)}>
-              <option value="">Selecionar conta</option>
-              {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-            </select>
+            <ContaSelect value={contaId} onChange={setContaId} contas={contas} onCreate={onCreateConta} allowEmpty emptyLabel="Selecionar conta" />
           </div>
           <div>
             <label style={{ fontSize: 11, color: T.txt3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 5 }}>Banco / Formato</label>
@@ -183,17 +214,29 @@ export default function Importar({ contas, cats, perfil, onToast, onDone }) {
         {/* Drop zone */}
         <div
           onClick={() => fileRef.current?.click()}
-          style={{ border: `2px dashed ${T.border2}`, borderRadius: T.radius2, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', marginBottom: 14, background: arquivo ? T.bg3 : 'transparent', transition: 'border-color .2s' }}
+          style={{ border: `2px dashed ${T.border2}`, borderRadius: T.radius2, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', marginBottom: 14, background: arquivos.length ? T.bg3 : 'transparent', transition: 'border-color .2s' }}
           onMouseEnter={e => e.currentTarget.style.borderColor = T.green}
           onMouseLeave={e => e.currentTarget.style.borderColor = T.border2}
         >
-          <input ref={fileRef} type="file" accept=".csv,.ofx,.txt" style={{ display: 'none' }} onChange={handleFile} />
+          <input ref={fileRef} type="file" accept=".csv,.ofx,.txt" multiple style={{ display: 'none' }} onChange={handleFile} />
           <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
-          {arquivo
-            ? <><div style={{ fontSize: 13, color: T.txt }}>{arquivo.name}</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{txsParsed.length} transações lidas</div></>
-            : <><div style={{ fontSize: 13, color: T.txt2 }}>Clique para selecionar ou arraste aqui</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>Suporte: CSV (Inter, Nubank, Bradesco, Mercado Pago...) e OFX</div></>
+          {arquivos.length
+            ? <><div style={{ fontSize: 13, color: T.txt }}>{arquivos.length === 1 ? arquivos[0].nome : `${arquivos.length} arquivos`}</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{txsParsed.length} transações lidas{mesesDetectados.length ? ` · ${mesesDetectados.length} ${mesesDetectados.length === 1 ? 'mês' : 'meses'}` : ''}</div></>
+            : <><div style={{ fontSize: 13, color: T.txt2 }}>Clique para selecionar (vários de uma vez) ou arraste aqui</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>Suporte: CSV (Inter, Nubank, Bradesco, Mercado Pago...) e OFX — pode subir Jan a Mai juntos</div></>
           }
         </div>
+
+        {/* Meses detectados */}
+        {mesesDetectados.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+            <span style={{ fontSize: 11, color: T.txt3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: .5 }}>Meses detectados:</span>
+            {mesesDetectados.map(ym => (
+              <span key={ym} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: 99, padding: '2px 10px', fontSize: 11, fontWeight: 600 }}>
+                {rotuloMes(ym)} <span style={{ color: T.txt3 }}>({txsParsed.filter(t => (t.data || '').slice(0, 7) === ym).length})</span>
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Prévia */}
         {preview.length > 0 && (
