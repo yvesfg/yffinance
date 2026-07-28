@@ -7,7 +7,7 @@ const NAV = [
   { id: 'extrato',     label: 'Extrato',        icon: <><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>, tag: null },
   { id: 'lancamentos', label: 'Lançamentos',    icon: <><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></>, tag: null },
   { id: 'sep1', sep: true },
-  { id: 'contas',      label: 'Contas',         icon: <><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></>, tag: null },
+  { id: 'contas',      label: 'Contas',         icon: <><line x1="3" y1="22" x2="21" y2="22"/><rect x="2" y="8" width="20" height="14"/><path d="M12 2L2 8h20L12 2z"/></>, tag: null },
   { id: 'cartoes',     label: 'Cartões',        icon: <><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></>, tag: null },
   { id: 'sep2', sep: true },
   { id: 'pluggy',      label: 'Open Finance',   icon: <><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></>, tag: 'beta' },
@@ -70,20 +70,21 @@ export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOp
 
         {/* Header / Brand */}
         <div style={{ padding: '18px 16px 14px', borderBottom: `1px solid ${T.border}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed && !mobileOpen ? 'center' : 'space-between' }}>
             {(!collapsed || mobileOpen) && (
               <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 16, fontWeight: 800, letterSpacing: '-.5px', color: T.txt }}>
                 YF<span style={{ color: T.green }}>Finance</span>
               </div>
             )}
             {collapsed && !mobileOpen && (
-              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 14, fontWeight: 800, color: T.green, margin: '0 auto' }}>YF</div>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 14, fontWeight: 800, color: T.green }}>YF</div>
             )}
             {!mobileOpen && (
               <button onClick={() => handleCollapse(!collapsed)} style={{
                 background: 'transparent', border: 'none', color: T.txt3,
                 cursor: 'pointer', padding: 4, borderRadius: T.radius3,
                 display: 'flex', alignItems: 'center',
+                marginLeft: collapsed ? 6 : 0,
               }}>
                 <Icon color={T.txt3} size={14}>
                   {collapsed
