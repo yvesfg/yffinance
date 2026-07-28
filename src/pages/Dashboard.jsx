@@ -4,13 +4,42 @@ import { fmt, fmtD } from '../lib/formatters.js';
 import { sb } from '../supabase.js';
 import BankLogo from '../components/BankLogo.jsx';
 
-function StatCard({ label, value, color, sub, accent }) {
+// Sparkline em SVG puro (sem libs) — mesmo padrão usado no controle-operacional e no frota-pro.
+function Sparkline({ data }) {
+  if (!data || data.length < 2) return null;
+  const w = 56, h = 24, gap = 2;
+  const barW = (w - gap * (data.length - 1)) / data.length;
+  const max = Math.max(...data.map(Math.abs), 1);
+  return (
+    <svg width={w} height={h} style={{ flexShrink: 0 }}>
+      {data.map((v, i) => {
+        const barH = Math.max(2, (Math.abs(v) / max) * h);
+        const isLast = i === data.length - 1;
+        return (
+          <rect key={i} x={i * (barW + gap)} y={h - barH} width={barW} height={barH} rx={1}
+            fill={isLast ? T.gold : T.txt3} opacity={isLast ? 1 : 0.4} />
+        );
+      })}
+    </svg>
+  );
+}
+
+function StatCard({ label, value, color, sub, accent, trend, deltaPct, deltaLabel }) {
   return (
     <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 18, position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${accent},transparent)` }} />
-      <div style={{ fontSize: 10, color: T.txt3, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 10 }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ fontSize: 10, color: T.txt3, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>{label}</div>
+        {trend && <Sparkline data={trend} />}
+      </div>
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 500, color }}>{value}</div>
       <div style={{ fontSize: 11, color: T.txt3, marginTop: 6 }}>{sub}</div>
+      {deltaPct != null && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: "'JetBrains Mono',monospace", marginTop: 6, color: deltaPct >= 0 ? T.green : T.red }}>
+          <span>{deltaPct >= 0 ? '↑' : '↓'} {Math.abs(deltaPct).toFixed(0)}%</span>
+          <span style={{ color: T.txt3 }}>{deltaLabel || 'vs mês anterior'}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -50,6 +79,47 @@ export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, lo
     })();
     return () => { cancel = true; };
   }, [mesAtual, perfil, txs.length]);
+
+  // Histórico dos últimos 6 meses (p/ sparkline+variação dos StatCards) — mesmo padrão do bloco de Previsão acima.
+  const [historico, setHistorico] = useState([]);
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try {
+        const [a, m] = mesAtual.split('-').map(Number);
+        const inicio = new Date(a, m - 6, 1).toISOString().slice(0, 10);
+        const fim = new Date(a, m, 0).toISOString().slice(0, 10);
+        const data = await sb(`cf_transacoes?perfil=eq.${perfil}&data=gte.${inicio}&data=lte.${fim}&select=tipo,valor,data`) || [];
+        if (cancel) return;
+        const buckets = {};
+        data.forEach(t => {
+          const ym = t.data.slice(0, 7);
+          if (!buckets[ym]) buckets[ym] = { entradas: 0, saidas: 0 };
+          if (t.tipo === 'receita') buckets[ym].entradas += Number(t.valor);
+          else if (t.tipo === 'despesa' || t.tipo === 'cartao') buckets[ym].saidas += Number(t.valor);
+        });
+        const mesesOrdenados = Object.keys(buckets).sort();
+        setHistorico(mesesOrdenados.map(ym => ({
+          entradas: buckets[ym].entradas,
+          saidas: buckets[ym].saidas,
+          resultado: buckets[ym].entradas - buckets[ym].saidas,
+        })));
+      } catch {
+        if (!cancel) setHistorico([]);
+      }
+    })();
+    return () => { cancel = true; };
+  }, [mesAtual, perfil]);
+
+  const pctDelta = arr => {
+    if (arr.length < 2) return null;
+    const prevV = arr[arr.length - 2], curV = arr[arr.length - 1];
+    if (!prevV) return null;
+    return ((curV - prevV) / Math.abs(prevV)) * 100;
+  };
+  const entradasTrend  = historico.map(h => h.entradas);
+  const saidasTrend    = historico.map(h => h.saidas);
+  const resultadoTrend = historico.map(h => h.resultado);
 
   const calcSaldo = id => {
     const c = contas.find(c => c.id === id); if (!c) return 0;
@@ -99,9 +169,9 @@ export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, lo
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 14 }}>
-        <StatCard label="Entradas"        value={fmt(rec)}        color={T.green}  accent={T.green}  sub={`${txs.filter(t=>t.tipo==='receita').length} receitas`} />
-        <StatCard label="Saídas"          value={fmt(saidas)}     color={T.red}    accent={T.red}    sub={`despesas ${fmt(desp)} · cartão ${fmt(cart)}`} />
-        <StatCard label="Resultado do mês" value={(resultado>=0?'+':'')+fmt(resultado)} color={resultado>=0?T.green:T.red} accent={resultado>=0?T.green:T.red} sub={resultado>=0?'sobra no mês':'déficit no mês'} />
+        <StatCard label="Entradas"        value={fmt(rec)}        color={T.green}  accent={T.green}  sub={`${txs.filter(t=>t.tipo==='receita').length} receitas`} trend={entradasTrend} deltaPct={pctDelta(entradasTrend)} />
+        <StatCard label="Saídas"          value={fmt(saidas)}     color={T.red}    accent={T.red}    sub={`despesas ${fmt(desp)} · cartão ${fmt(cart)}`} trend={saidasTrend} deltaPct={pctDelta(saidasTrend)} />
+        <StatCard label="Resultado do mês" value={(resultado>=0?'+':'')+fmt(resultado)} color={resultado>=0?T.green:T.red} accent={resultado>=0?T.green:T.red} sub={resultado>=0?'sobra no mês':'déficit no mês'} trend={resultadoTrend} deltaPct={pctDelta(resultadoTrend)} />
         <StatCard label="Saldo Total"     value={fmt(saldoTotal)} color={T.gold}   accent={T.gold}   sub={`${contas.length} contas`} />
       </div>
 
