@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { T } from '../constants.js';
 import { supabase } from '../lib/supabaseClient.js';
 
-export default function Login() {
+export default function Login({ erroInicial = '' }) {
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
+  const [error, setError]     = useState(erroInicial);
 
 
   const handleGoogle = async () => {
@@ -12,7 +12,9 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        // origin + pathname (e não só origin) pra o redirect bater com a URL
+        // cadastrada no Supabase mesmo se o app sair da raiz do domínio.
+        redirectTo: window.location.origin + window.location.pathname,
       },
     });
     if (error) { setError(error.message); setLoading(false); }

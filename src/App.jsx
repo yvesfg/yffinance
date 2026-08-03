@@ -35,26 +35,42 @@ export default function App() {
   const [cats, setCats]       = useState([]);
   const [cartoes, setCartoes] = useState([]);
 
-  // Auth: ouvir mudanças de sessão
+  const [authErro, setAuthErro] = useState('');
+
+  // Auth: quem troca o ?code= do retorno do Google por sessão é o
+  // detectSessionInUrl do client (lib/supabaseClient.js). Aqui só escutamos —
+  // trocar o code na mão em paralelo derrubava o login (code de uso único).
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
+    let vivo = true;
 
-    if (code) {
-      // PKCE: exchangeCodeForSession recebe só o code, não a URL inteira
-      supabase.auth.exchangeCodeForSession(code)
-        .then(({ data, error }) => {
-          if (!error && data?.session) {
-            window.history.replaceState({}, '', window.location.pathname);
-          }
-          // Em qualquer caso, deixa o onAuthStateChange resolver o estado
-        });
-    }
+    // Erro devolvido pelo provider (?error= ou #error=) — antes sumia calado e
+    // o usuário só via a tela de login de novo, sem explicação nenhuma.
+    const q = new URLSearchParams(window.location.search);
+    const h = new URLSearchParams(window.location.hash.slice(1));
+    const erroOAuth = q.get('error_description') || q.get('error')
+                   || h.get('error_description') || h.get('error');
+    if (erroOAuth) setAuthErro(decodeURIComponent(erroOAuth.replace(/\+/g, ' ')));
 
-    // Sempre busca sessão atual e observa mudanças
-    supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => setSession(s ?? null));
-    return () => subscription.unsubscribe();
+    // Rede lenta ou Supabase fora do ar deixavam session === undefined pra
+    // sempre, travando o app no "carregando...". Passou de 8s, mostra o login.
+    const limite = setTimeout(() => {
+      if (vivo) setSession(s => (s === undefined ? null : s));
+    }, 8000);
+
+    supabase.auth.getSession()
+      .then(({ data }) => { if (vivo) setSession(data.session ?? null); })
+      .catch(() => { if (vivo) setSession(null); });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (!vivo) return;
+      setSession(s ?? null);
+      // Tira o ?code= / #access_token= da barra de endereços depois que entrou.
+      if (s && (window.location.search || window.location.hash)) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    });
+
+    return () => { vivo = false; clearTimeout(limite); subscription.unsubscribe(); };
   }, []);
 
   const [toast, setToast]         = useState(null);
@@ -182,7 +198,7 @@ export default function App() {
   );
 
   // Não autenticado → tela de login
-  if (!session) return <Login />;
+  if (!session) return <Login erroInicial={authErro} />;
 
   // Autenticado mas sem perfil → splash de seleção
   if (!perfil) return <Splash onSelect={selectPerfil} />;
