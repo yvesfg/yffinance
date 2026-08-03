@@ -1,0 +1,20 @@
+/* Reset global. O app é todo estilo inline (tokens em constants.js), então esta
+   é a única folha de estilo — só o que o inline não alcança: <html>, <body> e
+   #root. Sem ela o body ficava com a margem padrão de 8px e fundo branco, e
+   como o App usa height:100vh no fluxo normal aparecia uma moldura branca em
+   volta do dashboard (a tela de login escapava por ser position:fixed).
+   Mesmas regras do controle-operacional (src/design-system/layout.css). */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  background: #08090d; /* T.bg */
+}
+
+body {
+  color: #eef0f8; /* T.txt */
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  -webkit-font-smoothing: antialiased;
+}
