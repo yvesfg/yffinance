@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useIsMobile } from '../lib/useMedia.js';
 import { T, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { sb } from '../supabase.js';
@@ -52,6 +53,7 @@ function proximoMes(ym) {
 }
 
 export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, loadTxs, perfil }) {
+  const isMobile = useIsMobile();
   const rec  = txs.filter(t => t.tipo === 'receita').reduce((s, t) => s + Number(t.valor), 0);
   const desp = txs.filter(t => t.tipo === 'despesa').reduce((s, t) => s + Number(t.valor), 0);
   const cart = txs.filter(t => t.tipo === 'cartao').reduce((s, t) => s + Number(t.valor), 0);
@@ -153,7 +155,7 @@ export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, lo
   const ultimas = txs.slice(0, 8);
 
   return (
-    <div style={{ padding: '24px 28px', fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'DM Sans', sans-serif" }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
@@ -168,7 +170,7 @@ export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, lo
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 14, marginBottom: 14 }}>
         <StatCard label="Entradas"        value={fmt(rec)}        color={T.green}  accent={T.green}  sub={`${txs.filter(t=>t.tipo==='receita').length} receitas`} trend={entradasTrend} deltaPct={pctDelta(entradasTrend)} />
         <StatCard label="Saídas"          value={fmt(saidas)}     color={T.red}    accent={T.red}    sub={`despesas ${fmt(desp)} · cartão ${fmt(cart)}`} trend={saidasTrend} deltaPct={pctDelta(saidasTrend)} />
         <StatCard label="Resultado do mês" value={(resultado>=0?'+':'')+fmt(resultado)} color={resultado>=0?T.green:T.red} accent={resultado>=0?T.green:T.red} sub={resultado>=0?'sobra no mês':'déficit no mês'} trend={resultadoTrend} deltaPct={pctDelta(resultadoTrend)} />
@@ -201,7 +203,7 @@ export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, lo
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16, marginBottom: 16 }}>
         {/* Contas */}
         <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 18 }}>
           <div style={{ fontSize: 10, color: T.txt3, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 14 }}>Saldo por Conta</div>

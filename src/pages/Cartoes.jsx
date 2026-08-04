@@ -1,13 +1,15 @@
 import React from 'react';
+import { useIsMobile } from '../lib/useMedia.js';
 import { T, BANCOS } from '../constants.js';
 import { fmt } from '../lib/formatters.js';
 import BankLogo from '../components/BankLogo.jsx';
 
 export default function Cartoes({ cartoes, txs, contas, onNew, onEdit, onDelete }) {
+  const isMobile = useIsMobile();
   const gastoCartao = id => txs.filter(t => (t.cartao_id === id || t.conta_id === id) && t.tipo === 'cartao').reduce((s, t) => s + Number(t.valor), 0);
 
   return (
-    <div style={{ padding:'24px 28px', fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily:"'DM Sans',sans-serif" }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
         <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Cartões de Crédito</h2>
         <button onClick={onNew} style={{ background:T.green, color:'#000', border:'none', borderRadius:T.radius2, padding:'9px 18px', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600 }}>+ Novo Cartão</button>

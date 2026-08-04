@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
+import { useIsMobile } from '../lib/useMedia.js';
 import { T, BANCOS } from '../constants.js';
 import { fmt, fmtD, exportCSV } from '../lib/formatters.js';
 
 const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box' };
 
 export default function Extrato({ txs, contas, cats, cartoes, mesAtual, setMesAtual, loadTxs, onEdit, onDelete }) {
+  const isMobile = useIsMobile();
   const [filtTipo, setFiltTipo] = useState('todos');
   const [filtConta, setFiltConta] = useState('');
   const [filtCat, setFiltCat] = useState('');
@@ -45,6 +47,9 @@ export default function Extrato({ txs, contas, cats, cartoes, mesAtual, setMesAt
   const contaNome = id => contas.find(c => c.id === id)?.nome || '';
   const catNome   = id => { const c = cats.find(c => c.id === id); return c ? `${c.icone||''} ${c.nome}` : ''; };
 
+  // Celular perde as colunas Conta e Data — elas descem para a linha de apoio
+  const colunas = isMobile ? '36px 1fr auto' : '36px 1fr auto auto auto';
+
   const TIPOS = [
     { v:'todos',         l:'Todos' },
     { v:'receita',       l:'Receitas' },
@@ -54,7 +59,7 @@ export default function Extrato({ txs, contas, cats, cartoes, mesAtual, setMesAt
   ];
 
   return (
-    <div style={{ padding: '24px 28px', fontFamily: "'DM Sans',sans-serif" }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'DM Sans',sans-serif" }}>
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
         <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Extrato</h2>
@@ -66,7 +71,7 @@ export default function Extrato({ txs, contas, cats, cartoes, mesAtual, setMesAt
       </div>
 
       {/* Resumo */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:18 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:18 }}>
         {[
           { l:'Entradas', v:totRec, c:T.green },
           { l:'Saídas', v:totDesp, c:T.red },
@@ -81,10 +86,11 @@ export default function Extrato({ txs, contas, cats, cartoes, mesAtual, setMesAt
 
       {/* Filtros */}
       <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:T.radius, padding:14, marginBottom:14, display:'flex', flexWrap:'wrap', gap:10, alignItems:'center' }}>
-        <div style={{ display:'flex', gap:4, background:T.bg3, padding:3, borderRadius:T.radius2 }}>
+        {/* Em 375px as cinco pastilhas somam ~390px: viram faixa rolável em vez de sair da tela */}
+        <div className="faixa-rolavel" style={{ display:'flex', gap:4, background:T.bg3, padding:3, borderRadius:T.radius2, maxWidth:'100%', overflowX:'auto' }}>
           {TIPOS.map(t => (
             <button key={t.v} onClick={() => setFiltTipo(t.v)} style={{
-              padding:'5px 10px', border: filtTipo===t.v?`1px solid ${T.border3}`:'1px solid transparent',
+              padding:'5px 10px', whiteSpace:'nowrap', flexShrink:0, border: filtTipo===t.v?`1px solid ${T.border3}`:'1px solid transparent',
               background: filtTipo===t.v?T.bg4:'transparent', color: filtTipo===t.v?T.txt:T.txt2,
               borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:"'DM Sans',sans-serif",
             }}>{t.l}</button>
@@ -115,11 +121,14 @@ export default function Extrato({ txs, contas, cats, cartoes, mesAtual, setMesAt
         </button>
       </div>
 
-      {/* Lista */}
+      {/* Lista. No celular as colunas Conta e Data saem da grade e descem para
+          a linha de apoio, senão cinco colunas não cabem em 375px. */}
       <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:T.radius }}>
-        <div style={{ display:'grid', gridTemplateColumns:'36px 1fr auto auto auto', gap:0, padding:'8px 14px', borderBottom:`1px solid ${T.border}`, fontSize:10, color:T.txt3, textTransform:'uppercase', letterSpacing:.8, fontWeight:600 }}>
-          <div></div><div>Descrição</div><div style={{ textAlign:'right', paddingRight:10 }}>Conta</div><div style={{ textAlign:'right', paddingRight:10 }}>Data</div><div style={{ textAlign:'right' }}>Valor</div>
-        </div>
+        {!isMobile && (
+          <div style={{ display:'grid', gridTemplateColumns:colunas, gap:0, padding:'8px 14px', borderBottom:`1px solid ${T.border}`, fontSize:10, color:T.txt3, textTransform:'uppercase', letterSpacing:.8, fontWeight:600 }}>
+            <div></div><div>Descrição</div><div style={{ textAlign:'right', paddingRight:10 }}>Conta</div><div style={{ textAlign:'right', paddingRight:10 }}>Data</div><div style={{ textAlign:'right' }}>Valor</div>
+          </div>
+        )}
         {filtradas.length === 0
           ? <div style={{ padding:'32px', textAlign:'center', color:T.txt3, fontSize:13 }}>Nenhuma movimentação encontrada</div>
           : filtradas.map(t => {
@@ -128,7 +137,7 @@ export default function Extrato({ txs, contas, cats, cartoes, mesAtual, setMesAt
             const icon = t.tipo==='receita'?'↑':t.tipo==='transferencia'?'⇄':t.tipo==='cartao'?'▣':'↓';
             const sinal= t.tipo==='receita'?'+':t.tipo==='transferencia'?'±':'-';
             return (
-              <div key={t.id} style={{ display:'grid', gridTemplateColumns:'36px 1fr auto auto auto', gap:0, padding:'9px 14px', borderBottom:`1px solid ${T.border}`, alignItems:'center' }}
+              <div key={t.id} style={{ display:'grid', gridTemplateColumns:colunas, gap:0, padding:'9px 14px', borderBottom:`1px solid ${T.border}`, alignItems:'center' }}
                 onMouseEnter={e => e.currentTarget.style.background = T.bg3}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
@@ -136,16 +145,20 @@ export default function Extrato({ txs, contas, cats, cartoes, mesAtual, setMesAt
                 <div style={{ paddingLeft:10, minWidth:0 }}>
                   <div style={{ fontSize:13, color:T.txt, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.descricao}</div>
                   <div style={{ fontSize:11, color:T.txt3, marginTop:1 }}>
-                    {catNome(t.categoria_id)}
-                    {t.conta_destino_id && ` → ${contaNome(t.conta_destino_id)}`}
+                    {[
+                      isMobile && fmtD(t.data),
+                      isMobile && contaNome(t.conta_id),
+                      catNome(t.categoria_id),
+                      t.conta_destino_id && `→ ${contaNome(t.conta_destino_id)}`,
+                    ].filter(Boolean).join(' · ')}
                     {/* Transferência sem destino sai do saldo da origem e não entra em lugar nenhum — precisa ficar visível */}
                     {t.tipo === 'transferencia' && !t.conta_destino_id && (
-                      <span style={{ color:T.blue, marginLeft:6 }}>· destino não informado</span>
+                      <span style={{ color:T.blue }}>{' · '}destino não informado</span>
                     )}
                   </div>
                 </div>
-                <div style={{ fontSize:12, color:T.txt3, paddingRight:14, whiteSpace:'nowrap' }}>{contaNome(t.conta_id)}</div>
-                <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12, color:T.txt3, paddingRight:14, whiteSpace:'nowrap' }}>{fmtD(t.data)}</div>
+                {!isMobile && <div style={{ fontSize:12, color:T.txt3, paddingRight:14, whiteSpace:'nowrap' }}>{contaNome(t.conta_id)}</div>}
+                {!isMobile && <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12, color:T.txt3, paddingRight:14, whiteSpace:'nowrap' }}>{fmtD(t.data)}</div>}
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                   <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:cor, whiteSpace:'nowrap' }}>{sinal}{fmt(t.valor)}</span>
                   <div style={{ display:'flex', gap:4 }}>

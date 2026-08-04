@@ -1,6 +1,7 @@
 import React from 'react';
 import { T } from '../constants.js';
 import { supabase } from '../lib/supabaseClient.js';
+import { useIsMobile } from '../lib/useMedia.js';
 
 const NAV = [
   { id: 'dashboard',   label: 'Dashboard',     icon: <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>, tag: null },
@@ -10,7 +11,6 @@ const NAV = [
   { id: 'contas',      label: 'Contas',         icon: <><line x1="3" y1="22" x2="21" y2="22"/><rect x="2" y="8" width="20" height="14"/><path d="M12 2L2 8h20L12 2z"/></>, tag: null },
   { id: 'cartoes',     label: 'Cartões',        icon: <><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></>, tag: null },
   { id: 'sep2', sep: true },
-  { id: 'pluggy',      label: 'Open Finance',   icon: <><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></>, tag: 'beta' },
   { id: 'importar',    label: 'Importar',       icon: <><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></>, tag: null },
 ];
 
@@ -24,20 +24,15 @@ function Icon({ children, size = 16, color = 'currentColor' }) {
   );
 }
 
-function Badge({ text }) {
-  return (
-    <span style={{
-      fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1,
-      padding: '1px 5px', borderRadius: 99, marginLeft: 'auto',
-      background: 'rgba(77,142,255,.15)', color: T.blue, border: '1px solid rgba(77,142,255,.25)',
-    }}>{text}</span>
-  );
-}
-
 export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOpen, onClose }) {
   const [collapsed, setCollapsed] = React.useState(() => localStorage.getItem('yf_sidebar') === '1');
-  const isMobile = mobileOpen !== undefined && window.innerWidth < 768;
-  const W = collapsed && !mobileOpen ? 56 : 228;
+  const isMobile = useIsMobile();
+  // No celular a barra é gaveta: ou está aberta por inteiro, ou nem ocupa espaço.
+  const encolhida = collapsed && !mobileOpen && !isMobile;
+  const W = encolhida ? 56 : 228;
+
+  // Fechada no celular ela não entra no fluxo — antes comia 228px da tela.
+  if (isMobile && !mobileOpen) return null;
 
   const handleCollapse = (v) => { setCollapsed(v); localStorage.setItem('yf_sidebar', v ? '1' : '0'); };
 
@@ -59,7 +54,7 @@ export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOp
       <nav style={{
         width: W, minWidth: W, maxWidth: W,
         background: T.bg2, borderRight: `1px solid ${T.border}`,
-        display: 'flex', flexDirection: 'column', height: '100vh',
+        display: 'flex', flexDirection: 'column', height: '100dvh',
         overflowY: 'auto', overflowX: 'hidden',
         position: mobileOpen ? 'fixed' : 'relative',
         left: mobileOpen ? 0 : 'auto', top: mobileOpen ? 0 : 'auto',
@@ -69,22 +64,29 @@ export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOp
       }}>
 
         {/* Header / Brand */}
-        <div style={{ padding: '18px 16px 14px', borderBottom: `1px solid ${T.border}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed && !mobileOpen ? 'center' : 'space-between' }}>
-            {(!collapsed || mobileOpen) && (
+        {/* Colapsada a barra tem 56px: "YF" + botão lado a lado não cabiam nos
+            24px que sobravam do padding e a marca saía cortada. Colapsado o
+            padding encolhe e os dois empilham. */}
+        <div style={{ padding: encolhida ? '14px 6px' : '18px 16px 14px', borderBottom: `1px solid ${T.border}` }}>
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            flexDirection: encolhida ? 'column' : 'row',
+            gap: encolhida ? 8 : 0,
+            justifyContent: encolhida ? 'center' : 'space-between',
+          }}>
+            {!encolhida && (
               <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 16, fontWeight: 800, letterSpacing: '-.5px', color: T.txt }}>
                 YF<span style={{ color: T.green }}>Finance</span>
               </div>
             )}
-            {collapsed && !mobileOpen && (
-              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 14, fontWeight: 800, color: T.green }}>YF</div>
+            {encolhida && (
+              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 15, fontWeight: 800, color: T.green, lineHeight: 1 }}>YF</div>
             )}
             {!mobileOpen && (
-              <button onClick={() => handleCollapse(!collapsed)} style={{
+              <button onClick={() => handleCollapse(!collapsed)} title={collapsed ? 'Expandir menu' : 'Recolher menu'} style={{
                 background: 'transparent', border: 'none', color: T.txt3,
                 cursor: 'pointer', padding: 4, borderRadius: T.radius3,
                 display: 'flex', alignItems: 'center',
-                marginLeft: collapsed ? 6 : 0,
               }}>
                 <Icon color={T.txt3} size={14}>
                   {collapsed
@@ -96,7 +98,7 @@ export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOp
           </div>
 
           {/* Workspace switcher */}
-          {(!collapsed || isMobile) && (
+          {!encolhida && (
             <button onClick={() => setPerfil(perfil === 'pessoal' ? 'empresa' : 'pessoal')} style={{
               marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6,
               background: T.bg3, border: `1px solid ${T.border2}`,
@@ -120,9 +122,9 @@ export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOp
             return (
               <button key={item.id} onClick={() => handleNav(item.id)} style={{
                 display: 'flex', alignItems: 'center',
-                gap: collapsed && !mobileOpen ? 0 : 10,
-                padding: collapsed && !mobileOpen ? '9px 0' : '9px 16px',
-                justifyContent: collapsed && !mobileOpen ? 'center' : 'flex-start',
+                gap: encolhida ? 0 : 10,
+                padding: encolhida ? '9px 0' : '9px 16px',
+                justifyContent: encolhida ? 'center' : 'flex-start',
                 width: '100%', background: active ? `rgba(5,212,155,.06)` : 'transparent',
                 border: 'none', borderLeft: `2px solid ${active ? T.green : 'transparent'}`,
                 color: active ? T.green : T.txt2, cursor: 'pointer',
@@ -130,8 +132,7 @@ export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOp
                 transition: 'all .12s', margin: '1px 0',
               }}>
                 <Icon color={active ? T.green : T.txt2} size={16}>{item.icon}</Icon>
-                {(!collapsed || mobileOpen) && <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>}
-                {(!collapsed || mobileOpen) && item.tag && <Badge text={item.tag} />}
+                {!encolhida && <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>}
               </button>
             );
           })}
@@ -145,8 +146,8 @@ export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOp
             title="Sair"
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
-              padding: collapsed && !mobileOpen ? '7px 0' : '7px 10px',
-              justifyContent: collapsed && !mobileOpen ? 'center' : 'flex-start',
+              padding: encolhida ? '7px 0' : '7px 10px',
+              justifyContent: encolhida ? 'center' : 'flex-start',
               width: '100%', background: 'transparent', border: `1px solid ${T.border2}`,
               borderRadius: T.radius3, color: T.txt3, cursor: 'pointer',
               fontSize: 12, fontFamily: "'DM Sans', sans-serif", transition: 'all .12s',
@@ -159,10 +160,10 @@ export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOp
               <polyline points="16 17 21 12 16 7"/>
               <line x1="21" y1="12" x2="9" y2="12"/>
             </Icon>
-            {(!collapsed || mobileOpen) && <span>Sair</span>}
+            {!encolhida && <span>Sair</span>}
           </button>
 
-          {(!collapsed || isMobile) ? (
+          {!encolhida ? (
             <div style={{ fontSize: 10, color: T.txt3, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
               by YFGroup
             </div>

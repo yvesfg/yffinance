@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useIsMobile } from '../lib/useMedia.js';
 import { T, BANCOS, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { parseOFX, parseCSV } from '../lib/parsers.js';
@@ -31,6 +32,7 @@ const inp = {
 };
 
 export default function Importar({ contas, cartoes = [], cats, perfil, onToast, onCreateConta, onDone }) {
+  const isMobile = useIsMobile();
   const [destino, setDestino]     = useState('conta');   // 'conta' | 'cartao'
   const [contaId, setContaId]     = useState('');
   const [cartaoId, setCartaoId]   = useState('');
@@ -387,7 +389,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
   };
 
   return (
-    <div style={{ padding: '24px 28px', fontFamily: "'DM Sans',sans-serif", maxWidth: 700 }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'DM Sans',sans-serif", maxWidth: 700 }}>
       <h2 style={{ fontFamily: "'Syne',sans-serif", fontSize: 24, fontWeight: 700, color: T.txt, margin: '0 0 20px', letterSpacing: -.5 }}>
         Importar Extrato
       </h2>

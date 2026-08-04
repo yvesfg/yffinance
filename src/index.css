@@ -17,4 +17,21 @@ body {
   overflow-x: hidden;
   overscroll-behavior-x: none;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Faixas de pastilhas de filtro: rolam de lado em tela estreita, sem a barra
+   de rolagem aparecer por cima do conteúdo. */
+.faixa-rolavel { scrollbar-width: none; -ms-overflow-style: none; }
+.faixa-rolavel::-webkit-scrollbar { display: none; }
+
+/* Celular e tablet: o que o estilo inline não resolve. */
+@media (max-width: 767px) {
+  /* O iOS dá zoom sozinho ao focar campo com fonte < 16px, e depois a página
+     fica deslocada. Os campos do app são 13px, então aqui vai o mínimo —
+     precisa de !important para vencer o estilo inline. */
+  input, select, textarea { font-size: 16px !important; }
+
+  /* Alvo de toque decente nos ícones de editar/excluir das listas. */
+  button { -webkit-tap-highlight-color: transparent; }
 }

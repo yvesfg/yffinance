@@ -11,7 +11,6 @@ import Lancamentos from './pages/Lancamentos.jsx';
 import Contas from './pages/Contas.jsx';
 import Cartoes from './pages/Cartoes.jsx';
 import Importar from './pages/Importar.jsx';
-import Pluggy from './pages/Pluggy.jsx';
 
 import Sidebar from './components/Sidebar.jsx';
 import TopBar from './components/TopBar.jsx';
@@ -213,18 +212,17 @@ export default function App() {
       case 'contas':      return <Contas contas={contas} txs={txs} onNew={() => { setEditConta(null); setModalConta(true); }} onEdit={c => { setEditConta(c); setModalConta(true); }} onDelete={deleteConta} />;
       case 'cartoes':     return <Cartoes cartoes={cartoes} txs={txs} contas={contas} onNew={() => { setEditCartao(null); setModalCartao(true); }} onEdit={c => { setEditCartao(c); setModalCartao(true); }} onDelete={deleteCartao} />;
       case 'importar':    return <Importar contas={contas} cartoes={cartoes} cats={cats} perfil={perfil} onToast={showToast} onCreateConta={createContaQuick} onDone={() => { loadTxs(); setPagina('extrato'); }} />;
-      case 'pluggy':      return <Pluggy contas={contas} cats={cats} perfil={perfil} onToast={showToast} onDone={() => { loadTxs(); setPagina('extrato'); }} />;
       default:            return <Dashboard {...pageProps} />;
     }
   };
 
   const PAGE_TITLES = {
     dashboard:'Dashboard', extrato:'Extrato', lancamentos:'Lançamentos',
-    contas:'Contas', cartoes:'Cartões', importar:'Importar', pluggy:'Open Finance',
+    contas:'Contas', cartoes:'Cartões', importar:'Importar',
   };
 
   return (
-    <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:T.bg, fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ display:'flex', height:'100dvh', overflow:'hidden', background:T.bg, fontFamily:"'DM Sans',sans-serif" }}>
       <Sidebar
         pagina={pagina}
         setPagina={p => { setPagina(p); setSideOpen(false); }}

@@ -1,9 +1,11 @@
 import React from 'react';
+import { useIsMobile } from '../lib/useMedia.js';
 import { T, BANCOS } from '../constants.js';
 import { fmt } from '../lib/formatters.js';
 import BankLogo from '../components/BankLogo.jsx';
 
 export default function Contas({ contas, txs, onNew, onEdit, onDelete }) {
+  const isMobile = useIsMobile();
   const calcSaldo = id => {
     const c = contas.find(c => c.id === id); if (!c) return 0;
     let s = Number(c.saldo_inicial) || 0;
@@ -20,7 +22,7 @@ export default function Contas({ contas, txs, onNew, onEdit, onDelete }) {
   const TIPOS_LABEL = { corrente:'Conta Corrente', poupanca:'Poupança', investimento:'Investimento', carteira:'Carteira', outro:'Outro' };
 
   return (
-    <div style={{ padding:'24px 28px', fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily:"'DM Sans',sans-serif" }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
         <div>
           <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Contas</h2>

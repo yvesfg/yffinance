@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useIsMobile } from '../lib/useMedia.js';
 import { T } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 
@@ -12,6 +13,7 @@ const TIPO_INFO = {
 };
 
 export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit, onDelete, mesAtual, setMesAtual, loadTxs }) {
+  const isMobile = useIsMobile();
   const [filtTipo, setFiltTipo] = useState('todos');
   const [filtStatus, setFiltStatus] = useState('todos');
 
@@ -32,7 +34,7 @@ export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit,
   const contaNome = id => contas.find(c => c.id === id)?.nome || cartoes.find(c => c.id === id)?.nome || '';
 
   return (
-    <div style={{ padding:'24px 28px', fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily:"'DM Sans',sans-serif" }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
         <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Lançamentos</h2>
         <div style={{ display:'flex', gap:10, alignItems:'center' }}>
@@ -45,19 +47,19 @@ export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit,
 
       {/* Filtros */}
       <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap' }}>
-        <div style={{ display:'flex', gap:3, background:T.bg2, border:`1px solid ${T.border}`, padding:3, borderRadius:T.radius2 }}>
+        <div className="faixa-rolavel" style={{ display:'flex', gap:3, background:T.bg2, border:`1px solid ${T.border}`, padding:3, borderRadius:T.radius2, maxWidth:'100%', overflowX:'auto' }}>
           {['todos','despesa','receita','transferencia','cartao'].map(t => (
             <button key={t} onClick={() => setFiltTipo(t)} style={{
-              padding:'5px 10px', border: filtTipo===t?`1px solid ${T.border3}`:'1px solid transparent',
+              padding:'5px 10px', whiteSpace:'nowrap', flexShrink:0, border: filtTipo===t?`1px solid ${T.border3}`:'1px solid transparent',
               background: filtTipo===t?T.bg4:'transparent', color: filtTipo===t?T.txt:T.txt2,
               borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:"'DM Sans',sans-serif", textTransform:'capitalize',
             }}>{t === 'todos' ? 'Todos' : TIPO_INFO[t]?.label || t}</button>
           ))}
         </div>
-        <div style={{ display:'flex', gap:3, background:T.bg2, border:`1px solid ${T.border}`, padding:3, borderRadius:T.radius2 }}>
+        <div className="faixa-rolavel" style={{ display:'flex', gap:3, background:T.bg2, border:`1px solid ${T.border}`, padding:3, borderRadius:T.radius2, maxWidth:'100%', overflowX:'auto' }}>
           {['todos','pago','pendente'].map(s => (
             <button key={s} onClick={() => setFiltStatus(s)} style={{
-              padding:'5px 10px', border: filtStatus===s?`1px solid ${T.border3}`:'1px solid transparent',
+              padding:'5px 10px', whiteSpace:'nowrap', flexShrink:0, border: filtStatus===s?`1px solid ${T.border3}`:'1px solid transparent',
               background: filtStatus===s?T.bg4:'transparent', color: filtStatus===s?T.txt:T.txt2,
               borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:"'DM Sans',sans-serif", textTransform:'capitalize',
             }}>{s === 'todos' ? 'Todos' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
