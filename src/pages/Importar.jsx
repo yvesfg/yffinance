@@ -6,6 +6,7 @@ import { parseOFX, parseCSV } from '../lib/parsers.js';
 import { acharOperacaoCompleta, acharPernaSaida, chaveBase, contarPorChave, contarPorChaveNoLote, hashDedup } from '../lib/dedup.js';
 import { detectParcela, gerarParcelas, jaExisteParcela, uuid } from '../lib/parcelas.js';
 import { lerDocumento } from '../lib/aiIntake.js';
+import { indicePorHistorico, categorizarLote, sugerirCategoria } from '../lib/categorizar.js';
 import { sb } from '../supabase.js';
 import ModalParcelas from '../modals/ModalParcelas.jsx';
 import ModalVincular from '../modals/ModalVincular.jsx';
@@ -51,6 +52,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
   const [vincIdx, setVincIdx]     = useState(0);
   const [modalVinc, setModalVinc] = useState(false);
   const [historico, setHistorico] = useState([]);   // importações anteriores deste destino
+  const [indiceCat, setIndiceCat] = useState(() => new Map());   // núcleo da descrição → categoria
   const fileRef = useRef();
 
   // Conta ou cartão: o resto do fluxo trabalha com o destino escolhido
@@ -71,6 +73,20 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
   }, [destinoId, campoAlvo, perfil]);
 
   useEffect(() => { carregarHistorico(); }, [carregarHistorico]);
+
+  // Índice de categorização: aprende com o que já está categorizado na base.
+  // Fica no nível do perfil (não do destino) — categorizar no cartão ensina a
+  // conta e vice-versa.
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const data = await sb(`cf_transacoes?perfil=eq.${perfil}&categoria_id=not.is.null&select=descricao,categoria_id&order=data.desc&limit=2000`);
+        if (vivo) setIndiceCat(indicePorHistorico(data || []));
+      } catch { /* sem histórico, os padrões embutidos seguem valendo */ }
+    })();
+    return () => { vivo = false; };
+  }, [perfil]);
 
   // Meses do arquivo que já foram importados nesta conta antes
   const mesesRepetidos = mesesDetectados
@@ -291,6 +307,13 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         return o;
       };
 
+      // Categoriza o que vai entrar sem categoria: extrato de banco não traz
+      // essa informação, e sem isso o gráfico de gastos por categoria nasce
+      // vazio mesmo com o mês inteiro lançado.
+      const cat = categorizarLote(txsParaSalvar, indiceCat, cats);
+      txsParaSalvar.length = 0;
+      txsParaSalvar.push(...cat.txs);
+
       // Insert em lote: uma requisição por bloco em vez de uma por linha, e o
       // índice único descarta o que já existe (duplo clique, duas abas, lote
       // reenviado) sem derrubar o resto.
@@ -331,7 +354,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         carregarHistorico();
       }
 
-      setResultado({ salvos, duplic, parcelasNovas, vinculadas, creditosFatura, pendentes: pendentes.length });
+      setResultado({ salvos, duplic, parcelasNovas, vinculadas, creditosFatura, categorizados: cat.categorizados, pendentes: pendentes.length });
       onToast(
         `${salvos} importados${parcelasNovas ? `, ${parcelasNovas} parcelas futuras criadas` : ''}${vinculadas ? `, ${vinculadas} transferências vinculadas` : ''}, ${duplic} duplicatas ignoradas`,
         'success'
@@ -479,10 +502,16 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
             <div style={{ background: T.bg3, borderRadius: T.radius2, overflow: 'hidden', border: `1px solid ${T.border}` }}>
               {preview.map((t, i) => {
                 const parc = (t.tipo !== 'receita' && t.tipo !== 'transferencia') ? detectParcela(t.descricao) : null;
+                const catSug = cats.find(c => c.id === sugerirCategoria(noCartao ? { ...t, tipo: 'cartao' } : t, indiceCat, cats));
                 return (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 12px', borderBottom: i < preview.length - 1 ? `1px solid ${T.border}` : 'none', fontSize: 12, gap: 8 }}>
                     <span style={{ color: T.txt3, flexShrink: 0 }}>{fmtD(t.data)}</span>
                     <span style={{ flex: 1, color: T.txt, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.descricao}</span>
+                    {catSug && (
+                      <span title="Categoria sugerida" style={{ background: T.bg2, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: 4, padding: '1px 6px', fontSize: 10, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        {catSug.icone} {catSug.nome}
+                      </span>
+                    )}
                     {parc && (
                       <span style={{ background: T.purpleGlow, color: T.purple, borderRadius: 4, padding: '1px 6px', fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
                         {parc.atual}/{parc.total}
@@ -524,6 +553,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
             {resultado.parcelasNovas > 0 && <div style={{ background: T.purpleGlow, color: T.purple, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>📅 {resultado.parcelasNovas} parcelas futuras criadas</div>}
             {resultado.vinculadas > 0 && <div style={{ background: T.blueGlow, color: T.blue, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>⇄ {resultado.vinculadas} transferências vinculadas</div>}
             {resultado.pendentes > 0 && <div style={{ background: T.blueGlow, color: T.blue, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>⇄ {resultado.pendentes} a identificar</div>}
+            {resultado.categorizados > 0 && <div style={{ background: T.goldGlow, color: T.gold, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>🏷 {resultado.categorizados} categorizados automaticamente</div>}
             {resultado.creditosFatura > 0 && <div style={{ background: T.bg3, color: T.txt2, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13 }}>↩ {resultado.creditosFatura} créditos da fatura ignorados (pagamento/estorno)</div>}
             {resultado.duplic > 0 && <div style={{ background: T.bg3, color: T.txt2, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13 }}>⊘ {resultado.duplic} duplicatas ignoradas</div>}
           </div>
