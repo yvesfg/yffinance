@@ -66,10 +66,10 @@ export default function ModalCartao({ open, onClose, onSave, contas, onCreateCon
           {fg('Dia Vencimento', <input type="number" min="1" max="28" style={inp} value={venc} onChange={e => setVenc(e.target.value)} />)}
           <div style={{ gridColumn:'1/-1' }}>{fg('Conta para Pagamento', <ContaSelect value={contaPag} onChange={setContaPag} contas={contas} onCreate={onCreateConta} allowEmpty emptyLabel="Nenhuma" />)}</div>
           {fg('Cor', <ColorField value={cor} onChange={setCor} />)}
-          <div style={{ gridColumn:'1/-1' }}>{fg('Link do logo do banco (opcional)',
+          <div style={{ gridColumn:'1/-1' }}>{fg('Site do banco ou link do logo (opcional)',
             <div style={{ display:'flex', gap:8, alignItems:'center' }}>
               <BankLogo slug={banco} url={logoUrl} size={36} />
-              <input type="url" style={inp} value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://logo.clearbit.com/seubanco.com.br" />
+              <input style={inp} value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="mercadopago.com.br — ou o link direto da imagem" />
             </div>
           )}</div>
         </div>

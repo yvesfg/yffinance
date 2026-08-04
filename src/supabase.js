@@ -7,7 +7,12 @@ const SB_KEY = import.meta.env.VITE_SB_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV
 // importação com `resolution=ignore-duplicates`, que deixa o índice único
 // descartar o que já existe em vez de estourar 409 no meio do lote.
 export async function sb(path, method = 'GET', data = null, params = '', prefer = '') {
-  const url = `${SB_URL}/rest/v1/${path}${params}`;
+  // Todo mundo chama passando o filtro cru ("id=eq.123"), sem o "?". Colado
+  // direto no caminho isso virava "cf_contasid=eq.123" e o PostgREST
+  // respondia "Could not find the table" — era o que quebrava editar e
+  // excluir. O separador entra aqui, uma vez, em vez de em cada chamada.
+  const filtro = params && !/^[?&]/.test(params) ? `?${params}` : params;
+  const url = `${SB_URL}/rest/v1/${path}${filtro}`;
   const { data: authData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
   const token = authData?.session?.access_token || SB_KEY;
 

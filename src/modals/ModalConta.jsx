@@ -60,10 +60,10 @@ export default function ModalConta({ open, onClose, onSave, editData }) {
           {fg('Tipo', <select style={inp} value={tipo} onChange={e => setTipo(e.target.value)}><option value="corrente">Conta Corrente</option><option value="poupanca">Poupança</option><option value="investimento">Investimento</option><option value="carteira">Carteira</option><option value="outro">Outro</option></select>)}
           {fg('Saldo Inicial (R$)', <input type="number" step="0.01" style={inp} value={saldo} onChange={e => setSaldo(e.target.value)} />)}
           {fg('Cor', <ColorField value={cor} onChange={setCor} />)}
-          <div style={{ gridColumn:'1/-1' }}>{fg('Link do logo do banco (opcional)',
+          <div style={{ gridColumn:'1/-1' }}>{fg('Site do banco ou link do logo (opcional)',
             <div style={{ display:'flex', gap:8, alignItems:'center' }}>
               <BankLogo slug={banco} url={logoUrl} size={36} />
-              <input type="url" style={inp} value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://logo.clearbit.com/seubanco.com.br" />
+              <input style={inp} value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="mercadopago.com.br — ou o link direto da imagem" />
             </div>
           )}</div>
         </div>
