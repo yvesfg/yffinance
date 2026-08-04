@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────
 
 import { ehTransferencia } from './parsers.js';
+import { detectParcela } from './parcelas.js';
 
 export const MAX_PAGINAS = 12;   // fatura/extrato mensal não passa disso
 export const MAX_MB = 12;
@@ -88,7 +89,13 @@ async function chamarGateway(image) {
 // CSV/OFX — daí para frente o pipeline (dedup, parcelas, transferência) é
 // exatamente o mesmo, sem caminho paralelo.
 function paraTransacao(l) {
-  const descricao = l.parcela ? `${l.descricao} ${l.parcela}` : l.descricao;
+  // A IA devolve a parcela em campo próprio, mas na maioria dos documentos ela
+  // JÁ está na descrição ("AMAZON 02/12"). Anexar às cegas gerava
+  // "AMAZON 02/12 02/12" e, pior, a descrição-base das parcelas futuras
+  // nascia com o número da parcela dentro.
+  const descricao = l.parcela && !detectParcela(l.descricao)
+    ? `${l.descricao} ${l.parcela}`
+    : l.descricao;
   const tipo = ehTransferencia(descricao)
     ? 'transferencia'
     : (l.sentido === 'entrada' ? 'receita' : 'despesa');
