@@ -4,6 +4,7 @@ import { fmt, fmtD } from '../lib/formatters.js';
 import { parseOFX, parseCSV } from '../lib/parsers.js';
 import { acharOperacaoCompleta, acharPernaSaida, chaveBase, contarPorChave, contarPorChaveNoLote, hashDedup } from '../lib/dedup.js';
 import { detectParcela, gerarParcelas, jaExisteParcela, uuid } from '../lib/parcelas.js';
+import { lerDocumento } from '../lib/aiIntake.js';
 import { sb } from '../supabase.js';
 import ModalParcelas from '../modals/ModalParcelas.jsx';
 import ModalVincular from '../modals/ModalVincular.jsx';
@@ -29,9 +30,12 @@ const inp = {
   fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box',
 };
 
-export default function Importar({ contas, cats, perfil, onToast, onCreateConta, onDone }) {
+export default function Importar({ contas, cartoes = [], cats, perfil, onToast, onCreateConta, onDone }) {
+  const [destino, setDestino]     = useState('conta');   // 'conta' | 'cartao'
   const [contaId, setContaId]     = useState('');
+  const [cartaoId, setCartaoId]   = useState('');
   const [banco, setBanco]         = useState('inter');
+  const [lendoIA, setLendoIA]     = useState(null);      // { arquivo, feito, total }
   const [arquivos, setArquivos]   = useState([]);   // nomes dos arquivos carregados
   const [txsParsed, setTxsParsed] = useState([]);   // todas as txs (de todos os arquivos)
   const [preview, setPreview]     = useState([]);    // primeiras 10 para exibição
@@ -44,20 +48,25 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
   const [pendVinc, setPendVinc]   = useState([]);
   const [vincIdx, setVincIdx]     = useState(0);
   const [modalVinc, setModalVinc] = useState(false);
-  const [historico, setHistorico] = useState([]);   // importações anteriores desta conta
+  const [historico, setHistorico] = useState([]);   // importações anteriores deste destino
   const fileRef = useRef();
+
+  // Conta ou cartão: o resto do fluxo trabalha com o destino escolhido
+  const noCartao   = destino === 'cartao';
+  const destinoId  = noCartao ? cartaoId : contaId;
+  const campoAlvo  = noCartao ? 'cartao_id' : 'conta_id';
 
   // Meses distintos detectados a partir das datas das transações
   const mesesDetectados = [...new Set(txsParsed.map(t => (t.data || '').slice(0, 7)).filter(Boolean))].sort();
 
   // Histórico de importações da conta selecionada, para avisar sobre período repetido
   const carregarHistorico = useCallback(async () => {
-    if (!contaId) { setHistorico([]); return; }
+    if (!destinoId) { setHistorico([]); return; }
     try {
-      const data = await sb(`cf_importacoes?conta_id=eq.${contaId}&perfil=eq.${perfil}&order=created_at.desc`);
+      const data = await sb(`cf_importacoes?${campoAlvo}=eq.${destinoId}&perfil=eq.${perfil}&order=created_at.desc`);
       setHistorico(data || []);
     } catch { setHistorico([]); }
-  }, [contaId, perfil]);
+  }, [destinoId, campoAlvo, perfil]);
 
   useEffect(() => { carregarHistorico(); }, [carregarHistorico]);
 
@@ -71,6 +80,9 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
     })
     .filter(Boolean);
 
+  // CSV e OFX são lidos aqui mesmo; PDF, foto e print vão para a IA.
+  const ehTexto = f => /\.(csv|ofx|txt)$/i.test(f.name);
+
   const handleFile = async e => {
     const files = [...e.target.files]; if (!files.length) return;
     setResultado(null);
@@ -78,10 +90,23 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
       let todas = [];
       const nomes = [];
       for (const f of files) {
-        const txt = await lerArquivo(f);
-        const result = f.name.toLowerCase().endsWith('.ofx') ? parseOFX(txt) : parseCSV(txt);
-        const txs = Array.isArray(result) ? result : (result?.txs || []);
-        nomes.push({ nome: f.name, qtd: txs.length });
+        let txs = [];
+        if (ehTexto(f)) {
+          const txt = await lerArquivo(f);
+          const result = f.name.toLowerCase().endsWith('.ofx') ? parseOFX(txt) : parseCSV(txt);
+          txs = Array.isArray(result) ? result : (result?.txs || []);
+        } else {
+          // Extrato/fatura em PDF ou imagem: uma chamada de IA por página
+          setLendoIA({ arquivo: f.name, feito: 0, total: 0 });
+          const out = await lerDocumento(f, {
+            onProgresso: (feito, total) => setLendoIA({ arquivo: f.name, feito, total }),
+          });
+          txs = out.txs;
+          if (out.paginasIgnoradas > 0) {
+            onToast(`${f.name}: só as primeiras ${out.paginas} páginas foram lidas`, 'error');
+          }
+        }
+        nomes.push({ nome: f.name, qtd: txs.length, ia: !ehTexto(f) });
         // Marca a origem: o dedup precisa saber o que se repete DENTRO de um
         // arquivo (legítimo) e o que se repete ENTRE arquivos (sobreposição).
         todas = todas.concat(txs.map(t => ({ ...t, _arquivo: f.name })));
@@ -92,16 +117,19 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
       setArquivos(nomes);
       setTxsParsed(todas);
       setPreview(todas.slice(0, 10));
-    } catch {
-      onToast('Erro ao ler arquivo(s). Verifique o formato.', 'error');
+    } catch (err) {
+      onToast(err?.message || 'Erro ao ler arquivo(s). Verifique o formato.', 'error');
     } finally {
+      setLendoIA(null);
       if (fileRef.current) fileRef.current.value = ''; // permite re-selecionar os mesmos arquivos
     }
   };
 
   // Etapa 1: usuário clica Importar → detectar parcelas e mostrar modal se houver
   const handleImportar = async () => {
-    if (!contaId || !txsParsed.length) { onToast('Selecione a conta e carregue um arquivo', 'error'); return; }
+    if (!destinoId || !txsParsed.length) {
+      onToast(`Selecione ${noCartao ? 'o cartão' : 'a conta'} e carregue um arquivo`, 'error'); return;
+    }
 
     // Detectar parcelas no lote importado
     const detectadas = [];
@@ -133,10 +161,17 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
       const anoAtras  = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
       const doisAnos  = new Date(Date.now() + 730 * 86400000).toISOString().slice(0, 10);
       const existentes = await sb(
-        `cf_transacoes?perfil=eq.${perfil}&data=gte.${anoAtras}&data=lte.${doisAnos}&select=id,data,valor,tipo,descricao,descricao_base,conta_id,conta_destino_id,parcela_atual,parcela_total,parcela_grupo`
+        `cf_transacoes?perfil=eq.${perfil}&data=gte.${anoAtras}&data=lte.${doisAnos}&select=id,data,valor,tipo,descricao,descricao_base,conta_id,conta_destino_id,cartao_id,parcela_atual,parcela_total,parcela_grupo`
       ) || [];
 
-      let salvos = 0, duplic = 0, parcelasNovas = 0, vinculadas = 0;
+      let salvos = 0, duplic = 0, parcelasNovas = 0, vinculadas = 0, creditosFatura = 0;
+
+      // Monta a linha conforme o destino: conta ou cartão de crédito.
+      // Na fatura todo gasto é tipo 'cartao' com cartao_id — é assim que a
+      // aba Cartões enxerga a fatura (ela soma por tipo === 'cartao').
+      const noDestino = tx => (noCartao
+        ? { ...tx, tipo: 'cartao', cartao_id: cartaoId, conta_id: null, perfil, status: 'pago' }
+        : { ...tx, conta_id: contaId, perfil, status: 'pago' });
 
       // Mapa para agrupar parcelas confirmadas por descrição original
       const parcelasMap = {};
@@ -152,22 +187,34 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
       // Quantas linhas de cada chave o banco já tem, e quantas o arquivo traz.
       // Entra só a diferença: reimportar não duplica, e o extrato que traz dois
       // lançamentos idênticos legítimos continua entrando com os dois.
-      const noBanco   = contarPorChave(existentes, contaId);
-      const noArquivo = contarPorChaveNoLote(txsParsed, contaId);
+      // Na fatura a linha é gravada como tipo 'cartao'; a chave tem que ser
+      // calculada sobre o tipo FINAL, senão reimportar não bate com o banco.
+      const lote = noCartao ? txsParsed.map(t => ({ ...t, tipo: 'cartao' })) : txsParsed;
+
+      const noBanco   = contarPorChave(existentes, destinoId, campoAlvo);
+      const noArquivo = contarPorChaveNoLote(lote, destinoId);
       const emitidas  = new Map();   // já emitidas nesta execução, por chave
 
-      for (const tx of txsParsed) {
-        const chave  = chaveBase(tx, contaId);
+      for (const tx of lote) {
+        const chave  = chaveBase(tx, destinoId);
         const jaTem  = noBanco.get(chave) || 0;
         const cabem  = Math.max(0, (noArquivo.get(chave) || 0) - jaTem);
         const usadas = emitidas.get(chave) || 0;
         if (usadas >= cabem) { duplic++; continue; }
         emitidas.set(chave, usadas + 1);
         // Ordinal desta ocorrência, para o índice único do banco
-        const hash = hashDedup(tx, contaId, jaTem + usadas);
+        const hash = hashDedup(tx, destinoId, jaTem + usadas);
+
+        // --- FATURA DE CARTÃO ---
+        // Crédito na fatura (pagamento da própria fatura, estorno) não entra:
+        // o pagamento vem do extrato da conta e seria contado duas vezes.
+        if (noCartao) {
+          if ((tx.sentido || 'saida') === 'entrada') { creditosFatura++; continue; }
+        }
 
         // --- TRANSFERÊNCIAS: uma operação, dois extratos, UMA linha ---
-        if (tx.tipo === 'transferencia') {
+        // (fatura de cartão não tem transferência entre contas)
+        if (!noCartao && tx.tipo === 'transferencia') {
           const sentido = tx.sentido || 'saida';
 
           // Esta perna já está representada por uma operação completa
@@ -208,7 +255,7 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
           const grupoId = uuid();
 
           const futuras = gerarParcelas(
-            { ...tx, descricao_base: base, conta_id: contaId, perfil, status: 'pago', tipo: 'despesa' },
+            { ...noDestino(tx), descricao_base: base, tipo: noCartao ? 'cartao' : 'despesa' },
             atual,
             total,
             grupoId
@@ -221,15 +268,15 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
             }
             // Cada parcela tem data e descrição próprias, então a chave dela
             // já é única — ordinal 0.
-            txsParaSalvar.push({ ...parc, hash_dedup: hashDedup(parc, contaId, 0) });
+            txsParaSalvar.push({ ...parc, hash_dedup: hashDedup(parc, destinoId, 0) });
             if (parc.parcela_atual === atual) salvos++;
             else parcelasNovas++;
           }
           continue;
         }
 
-        // --- DESPESA/RECEITA NORMAL ---
-        txsParaSalvar.push({ ...tx, conta_id: contaId, perfil, status: 'pago', hash_dedup: hash });
+        // --- DESPESA/RECEITA NORMAL (ou gasto de fatura) ---
+        txsParaSalvar.push({ ...noDestino(tx), hash_dedup: hash });
         salvos++;
       }
 
@@ -262,21 +309,27 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
         await sb('cf_transacoes', 'PATCH', { conta_destino_id: p.conta_destino_id }, `id=eq.${p.id}`);
       }
 
-      // Registra o período importado, para avisar numa próxima vez
+      // Registra o período importado, para avisar numa próxima vez.
+      // Conta o que o DOCUMENTO trouxe, não o que foi gravado: parcela futura
+      // cai em meses que o extrato nem cobre, e marcá-los faria o app avisar
+      // que agosto já foi importado quando só existe ali uma parcela projetada.
       if (inseridas > 0) {
         const porMes = {};
-        for (const tx of txsParaSalvar) {
+        for (const tx of txsParsed) {
           const ym = String(tx.data).slice(0, 7);
-          porMes[ym] = (porMes[ym] || 0) + 1;
+          if (ym) porMes[ym] = (porMes[ym] || 0) + 1;
         }
         const nomes = arquivos.map(a => a.nome).join(', ').slice(0, 500);
         await sb('cf_importacoes', 'POST', Object.entries(porMes).map(([mes, qtd]) => ({
-          perfil, conta_id: contaId, mes_referencia: mes, qtd_lancamentos: qtd, arquivos: nomes,
+          perfil,
+          conta_id:  noCartao ? null : contaId,
+          cartao_id: noCartao ? cartaoId : null,
+          mes_referencia: mes, qtd_lancamentos: qtd, arquivos: nomes,
         })));
         carregarHistorico();
       }
 
-      setResultado({ salvos, duplic, parcelasNovas, vinculadas, pendentes: pendentes.length });
+      setResultado({ salvos, duplic, parcelasNovas, vinculadas, creditosFatura, pendentes: pendentes.length });
       onToast(
         `${salvos} importados${parcelasNovas ? `, ${parcelasNovas} parcelas futuras criadas` : ''}${vinculadas ? `, ${vinculadas} transferências vinculadas` : ''}, ${duplic} duplicatas ignoradas`,
         'success'
@@ -340,10 +393,28 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
       </h2>
 
       <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 22, marginBottom: 16 }}>
+        {/* Extrato de conta ou fatura de cartão */}
+        <div style={{ display: 'flex', gap: 3, background: T.bg3, padding: 3, borderRadius: T.radius2, marginBottom: 14 }}>
+          {[['conta', '🏦 Extrato de conta'], ['cartao', '💳 Fatura de cartão']].map(([v, l]) => (
+            <button key={v} onClick={() => setDestino(v)} style={{
+              flex: 1, padding: '8px 4px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+              fontFamily: "'DM Sans',sans-serif",
+              border: destino === v ? `1px solid ${T.green}40` : '1px solid transparent',
+              background: destino === v ? `${T.green}20` : 'transparent',
+              color: destino === v ? T.green : T.txt3,
+            }}>{l}</button>
+          ))}
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
           <div>
-            <label style={{ fontSize: 11, color: T.txt3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 5 }}>Conta</label>
-            <ContaSelect value={contaId} onChange={setContaId} contas={contas} onCreate={onCreateConta} allowEmpty emptyLabel="Selecionar conta" />
+            <label style={{ fontSize: 11, color: T.txt3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 5 }}>{noCartao ? 'Cartão' : 'Conta'}</label>
+            {noCartao
+              ? <select style={inp} value={cartaoId} onChange={e => setCartaoId(e.target.value)}>
+                  <option value="">{cartoes.length ? 'Selecionar cartão' : 'Nenhum cartão cadastrado'}</option>
+                  {cartoes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              : <ContaSelect value={contaId} onChange={setContaId} contas={contas} onCreate={onCreateConta} allowEmpty emptyLabel="Selecionar conta" />}
           </div>
           <div>
             <label style={{ fontSize: 11, color: T.txt3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 5 }}>Banco / Formato</label>
@@ -360,11 +431,13 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
           onMouseEnter={e => e.currentTarget.style.borderColor = T.green}
           onMouseLeave={e => e.currentTarget.style.borderColor = T.border2}
         >
-          <input ref={fileRef} type="file" accept=".csv,.ofx,.txt" multiple style={{ display: 'none' }} onChange={handleFile} />
-          <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
-          {arquivos.length
-            ? <><div style={{ fontSize: 13, color: T.txt }}>{arquivos.length === 1 ? arquivos[0].nome : `${arquivos.length} arquivos`}</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{txsParsed.length} transações lidas{mesesDetectados.length ? ` · ${mesesDetectados.length} ${mesesDetectados.length === 1 ? 'mês' : 'meses'}` : ''}</div></>
-            : <><div style={{ fontSize: 13, color: T.txt2 }}>Clique para selecionar (vários de uma vez) ou arraste aqui</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>Suporte: CSV (Inter, Nubank, Bradesco, Mercado Pago...) e OFX — pode subir Jan a Mai juntos</div></>
+          <input ref={fileRef} type="file" accept=".csv,.ofx,.txt,.pdf,image/*" multiple style={{ display: 'none' }} onChange={handleFile} />
+          <div style={{ fontSize: 28, marginBottom: 8 }}>{lendoIA ? '🤖' : '📂'}</div>
+          {lendoIA
+            ? <><div style={{ fontSize: 13, color: T.txt }}>Lendo {lendoIA.arquivo} com IA…</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{lendoIA.total ? `página ${Math.min(lendoIA.feito + 1, lendoIA.total)} de ${lendoIA.total}` : 'preparando páginas'}</div></>
+            : arquivos.length
+            ? <><div style={{ fontSize: 13, color: T.txt }}>{arquivos.length === 1 ? arquivos[0].nome : `${arquivos.length} arquivos`}</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{txsParsed.length} transações lidas{arquivos.some(a => a.ia) ? ' (via IA)' : ''}{mesesDetectados.length ? ` · ${mesesDetectados.length} ${mesesDetectados.length === 1 ? 'mês' : 'meses'}` : ''}</div></>
+            : <><div style={{ fontSize: 13, color: T.txt2 }}>Clique para selecionar (vários de uma vez) ou arraste aqui</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>CSV e OFX são lidos na hora; PDF, foto e print do {noCartao ? 'da fatura' : 'extrato'} são lidos por IA</div></>
           }
         </div>
 
@@ -433,8 +506,8 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
 
         <button
           onClick={handleImportar}
-          disabled={!contaId || !txsParsed.length || importando}
-          style={{ width: '100%', padding: '11px', background: (!contaId || !txsParsed.length || importando) ? T.bg3 : T.green, color: (!contaId || !txsParsed.length || importando) ? T.txt3 : '#000', border: 'none', borderRadius: T.radius2, cursor: (!contaId || !txsParsed.length || importando) ? 'not-allowed' : 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 600 }}
+          disabled={!destinoId || !txsParsed.length || importando || !!lendoIA}
+          style={{ width: '100%', padding: '11px', background: (!destinoId || !txsParsed.length || importando || lendoIA) ? T.bg3 : T.green, color: (!destinoId || !txsParsed.length || importando || lendoIA) ? T.txt3 : '#000', border: 'none', borderRadius: T.radius2, cursor: (!destinoId || !txsParsed.length || importando || lendoIA) ? 'not-allowed' : 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 600 }}
         >
           {importando ? 'Importando...' : 'Importar'}
         </button>
@@ -449,6 +522,7 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
             {resultado.parcelasNovas > 0 && <div style={{ background: T.purpleGlow, color: T.purple, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>📅 {resultado.parcelasNovas} parcelas futuras criadas</div>}
             {resultado.vinculadas > 0 && <div style={{ background: T.blueGlow, color: T.blue, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>⇄ {resultado.vinculadas} transferências vinculadas</div>}
             {resultado.pendentes > 0 && <div style={{ background: T.blueGlow, color: T.blue, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>⇄ {resultado.pendentes} a identificar</div>}
+            {resultado.creditosFatura > 0 && <div style={{ background: T.bg3, color: T.txt2, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13 }}>↩ {resultado.creditosFatura} créditos da fatura ignorados (pagamento/estorno)</div>}
             {resultado.duplic > 0 && <div style={{ background: T.bg3, color: T.txt2, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13 }}>⊘ {resultado.duplic} duplicatas ignoradas</div>}
           </div>
         </div>

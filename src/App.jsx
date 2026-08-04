@@ -212,7 +212,7 @@ export default function App() {
       case 'lancamentos': return <Lancamentos {...pageProps} onNew={openNewTx} onEdit={openEditTx} onDelete={deleteTx} />;
       case 'contas':      return <Contas contas={contas} txs={txs} onNew={() => { setEditConta(null); setModalConta(true); }} onEdit={c => { setEditConta(c); setModalConta(true); }} onDelete={deleteConta} />;
       case 'cartoes':     return <Cartoes cartoes={cartoes} txs={txs} contas={contas} onNew={() => { setEditCartao(null); setModalCartao(true); }} onEdit={c => { setEditCartao(c); setModalCartao(true); }} onDelete={deleteCartao} />;
-      case 'importar':    return <Importar contas={contas} cats={cats} perfil={perfil} onToast={showToast} onCreateConta={createContaQuick} onDone={() => { loadTxs(); setPagina('extrato'); }} />;
+      case 'importar':    return <Importar contas={contas} cartoes={cartoes} cats={cats} perfil={perfil} onToast={showToast} onCreateConta={createContaQuick} onDone={() => { loadTxs(); setPagina('extrato'); }} />;
       case 'pluggy':      return <Pluggy contas={contas} cats={cats} perfil={perfil} onToast={showToast} onDone={() => { loadTxs(); setPagina('extrato'); }} />;
       default:            return <Dashboard {...pageProps} />;
     }
