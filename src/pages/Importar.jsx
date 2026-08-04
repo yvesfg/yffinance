@@ -1,8 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { T, BANCOS, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { parseOFX, parseCSV } from '../lib/parsers.js';
-import { acharOperacaoCompleta, acharPernaSaida } from '../lib/dedup.js';
+import { acharOperacaoCompleta, acharPernaSaida, chaveBase, contarPorChave, contarPorChaveNoLote, hashDedup } from '../lib/dedup.js';
 import { detectParcela, gerarParcelas, jaExisteParcela, uuid } from '../lib/parcelas.js';
 import { sb } from '../supabase.js';
 import ModalParcelas from '../modals/ModalParcelas.jsx';
@@ -44,10 +44,32 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
   const [pendVinc, setPendVinc]   = useState([]);
   const [vincIdx, setVincIdx]     = useState(0);
   const [modalVinc, setModalVinc] = useState(false);
+  const [historico, setHistorico] = useState([]);   // importações anteriores desta conta
   const fileRef = useRef();
 
   // Meses distintos detectados a partir das datas das transações
   const mesesDetectados = [...new Set(txsParsed.map(t => (t.data || '').slice(0, 7)).filter(Boolean))].sort();
+
+  // Histórico de importações da conta selecionada, para avisar sobre período repetido
+  const carregarHistorico = useCallback(async () => {
+    if (!contaId) { setHistorico([]); return; }
+    try {
+      const data = await sb(`cf_importacoes?conta_id=eq.${contaId}&perfil=eq.${perfil}&order=created_at.desc`);
+      setHistorico(data || []);
+    } catch { setHistorico([]); }
+  }, [contaId, perfil]);
+
+  useEffect(() => { carregarHistorico(); }, [carregarHistorico]);
+
+  // Meses do arquivo que já foram importados nesta conta antes
+  const mesesRepetidos = mesesDetectados
+    .map(ym => {
+      const antes = historico.filter(h => h.mes_referencia === ym);
+      if (!antes.length) return null;
+      const qtd = antes.reduce((s, h) => s + Number(h.qtd_lancamentos || 0), 0);
+      return { ym, qtd, quando: antes[0].created_at };
+    })
+    .filter(Boolean);
 
   const handleFile = async e => {
     const files = [...e.target.files]; if (!files.length) return;
@@ -60,7 +82,9 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
         const result = f.name.toLowerCase().endsWith('.ofx') ? parseOFX(txt) : parseCSV(txt);
         const txs = Array.isArray(result) ? result : (result?.txs || []);
         nomes.push({ nome: f.name, qtd: txs.length });
-        todas = todas.concat(txs);
+        // Marca a origem: o dedup precisa saber o que se repete DENTRO de um
+        // arquivo (legítimo) e o que se repete ENTRE arquivos (sobreposição).
+        todas = todas.concat(txs.map(t => ({ ...t, _arquivo: f.name })));
       }
       if (!todas.length) { onToast('Nenhuma transação encontrada nos arquivos', 'error'); return; }
       // Ordena por data para visualização coerente entre meses
@@ -124,15 +148,23 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
       const patches   = [];   // vínculos em linhas que já estão no banco
       const pendentes = [];   // entradas sem perna de saída → ModalVincular
 
+      // --- DEDUP POR CONTAGEM ---
+      // Quantas linhas de cada chave o banco já tem, e quantas o arquivo traz.
+      // Entra só a diferença: reimportar não duplica, e o extrato que traz dois
+      // lançamentos idênticos legítimos continua entrando com os dois.
+      const noBanco   = contarPorChave(existentes, contaId);
+      const noArquivo = contarPorChaveNoLote(txsParsed, contaId);
+      const emitidas  = new Map();   // já emitidas nesta execução, por chave
+
       for (const tx of txsParsed) {
-        // --- DEDUP GERAL: mesma conta + data + valor + descrição ---
-        const jaLancado = existentes.some(e =>
-          e.conta_id === contaId &&
-          String(e.data).slice(0, 10) === tx.data &&
-          Math.abs(Number(e.valor) - Number(tx.valor)) < 0.01 &&
-          (e.descricao || '').toLowerCase().slice(0, 20) === (tx.descricao || '').toLowerCase().slice(0, 20)
-        );
-        if (jaLancado) { duplic++; continue; }
+        const chave  = chaveBase(tx, contaId);
+        const jaTem  = noBanco.get(chave) || 0;
+        const cabem  = Math.max(0, (noArquivo.get(chave) || 0) - jaTem);
+        const usadas = emitidas.get(chave) || 0;
+        if (usadas >= cabem) { duplic++; continue; }
+        emitidas.set(chave, usadas + 1);
+        // Ordinal desta ocorrência, para o índice único do banco
+        const hash = hashDedup(tx, contaId, jaTem + usadas);
 
         // --- TRANSFERÊNCIAS: uma operação, dois extratos, UMA linha ---
         if (tx.tipo === 'transferencia') {
@@ -162,7 +194,7 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
           }
 
           // Saída: entra sem destino e fica aguardando a perna de entrada
-          const saida = { ...tx, conta_id: contaId, conta_destino_id: null, perfil, status: 'pago' };
+          const saida = { ...tx, conta_id: contaId, conta_destino_id: null, perfil, status: 'pago', hash_dedup: hash };
           txsParaSalvar.push(saida);
           existentes.push(saida);   // visível para as entradas seguintes do lote
           salvos++;
@@ -187,7 +219,9 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
             if (jaExisteParcela(existentes, base, parc.valor, parc.parcela_atual)) {
               duplic++; continue;
             }
-            txsParaSalvar.push(parc);
+            // Cada parcela tem data e descrição próprias, então a chave dela
+            // já é única — ordinal 0.
+            txsParaSalvar.push({ ...parc, hash_dedup: hashDedup(parc, contaId, 0) });
             if (parc.parcela_atual === atual) salvos++;
             else parcelasNovas++;
           }
@@ -195,12 +229,12 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
         }
 
         // --- DESPESA/RECEITA NORMAL ---
-        txsParaSalvar.push({ ...tx, conta_id: contaId, perfil, status: 'pago' });
+        txsParaSalvar.push({ ...tx, conta_id: contaId, perfil, status: 'pago', hash_dedup: hash });
         salvos++;
       }
 
-      // Mantém apenas colunas reais de cf_transacoes (remove _sel e outros auxiliares)
-      const COLS = ['data', 'tipo', 'descricao', 'valor', 'conta_id', 'conta_destino_id', 'categoria_id', 'status', 'origem', 'observacao', 'perfil', 'parcela_atual', 'parcela_total', 'parcela_grupo', 'descricao_base', 'cartao_id'];
+      // Mantém apenas colunas reais de cf_transacoes (remove _sel, sentido e outros auxiliares)
+      const COLS = ['data', 'tipo', 'descricao', 'valor', 'conta_id', 'conta_destino_id', 'categoria_id', 'status', 'origem', 'observacao', 'perfil', 'parcela_atual', 'parcela_total', 'parcela_grupo', 'descricao_base', 'cartao_id', 'hash_dedup'];
       const limpar = tx => {
         const o = {};
         for (const k of COLS) if (tx[k] !== undefined && tx[k] !== '') o[k] = tx[k];
@@ -208,15 +242,38 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
         return o;
       };
 
-      // Salvar em lote (sequencial para não estourar rate limit)
-      for (const tx of txsParaSalvar) {
-        await sb('cf_transacoes', 'POST', limpar(tx));
+      // Insert em lote: uma requisição por bloco em vez de uma por linha, e o
+      // índice único descarta o que já existe (duplo clique, duas abas, lote
+      // reenviado) sem derrubar o resto.
+      let inseridas = 0;
+      const BLOCO = 200;
+      for (let i = 0; i < txsParaSalvar.length; i += BLOCO) {
+        const bloco = txsParaSalvar.slice(i, i + BLOCO).map(limpar);
+        const r = await sb('cf_transacoes', 'POST', bloco, '', 'resolution=ignore-duplicates');
+        inseridas += Array.isArray(r) ? r.length : bloco.length;
       }
+      // O banco pode ter recusado linhas que o cliente achou novas
+      const bloqueadas = txsParaSalvar.length - inseridas;
+      if (bloqueadas > 0) { duplic += bloqueadas; salvos = Math.max(0, salvos - bloqueadas); }
 
       // Vincular as pernas de entrada que acharam a saída correspondente:
       // completa a operação existente em vez de criar uma segunda linha.
       for (const p of patches) {
         await sb('cf_transacoes', 'PATCH', { conta_destino_id: p.conta_destino_id }, `id=eq.${p.id}`);
+      }
+
+      // Registra o período importado, para avisar numa próxima vez
+      if (inseridas > 0) {
+        const porMes = {};
+        for (const tx of txsParaSalvar) {
+          const ym = String(tx.data).slice(0, 7);
+          porMes[ym] = (porMes[ym] || 0) + 1;
+        }
+        const nomes = arquivos.map(a => a.nome).join(', ').slice(0, 500);
+        await sb('cf_importacoes', 'POST', Object.entries(porMes).map(([mes, qtd]) => ({
+          perfil, conta_id: contaId, mes_referencia: mes, qtd_lancamentos: qtd, arquivos: nomes,
+        })));
+        carregarHistorico();
       }
 
       setResultado({ salvos, duplic, parcelasNovas, vinculadas, pendentes: pendentes.length });
@@ -320,6 +377,21 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
                 {rotuloMes(ym)} <span style={{ color: T.txt3 }}>({txsParsed.filter(t => (t.data || '').slice(0, 7) === ym).length})</span>
               </span>
             ))}
+          </div>
+        )}
+
+        {/* Período já importado nesta conta */}
+        {mesesRepetidos.length > 0 && (
+          <div style={{ background: T.bg3, border: `1px solid ${T.gold}40`, borderRadius: T.radius2, padding: '10px 12px', marginBottom: 14, fontSize: 12, color: T.txt2 }}>
+            <div style={{ color: T.gold, fontWeight: 600, marginBottom: 4 }}>⚠ Período já importado nesta conta</div>
+            {mesesRepetidos.map(m => (
+              <div key={m.ym} style={{ fontSize: 11, color: T.txt3 }}>
+                {rotuloMes(m.ym)} — {m.qtd} {m.qtd === 1 ? 'lançamento' : 'lançamentos'} em {fmtD(String(m.quando).slice(0, 10))}
+              </div>
+            ))}
+            <div style={{ fontSize: 11, color: T.txt3, marginTop: 5 }}>
+              Pode importar mesmo assim: o que já existe é reconhecido e ignorado, e só entra o que estiver faltando.
+            </div>
           </div>
         )}
 

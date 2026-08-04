@@ -8,7 +8,68 @@
 // de diferença (TED/DOC principalmente). Janela padrão de tolerância.
 export const JANELA_DIAS = 3;
 
-const soData = d => String(d || '').slice(0, 10);
+// ─── Duplicidade por contagem de ocorrências ──────────────────────────
+// Comparar "existe uma igual?" descartava lançamento legítimo repetido (dois
+// cafés de R$ 12 no mesmo dia). O que vale é QUANTAS iguais o extrato traz
+// contra quantas o banco já tem: entra só a diferença.
+
+const soData   = d => String(d || '').slice(0, 10);
+const normDesc = d => (d || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** Chave natural de um lançamento importado, sem o número da ocorrência. */
+export function chaveBase(tx, contaId) {
+  return [
+    contaId || tx.conta_id || '',
+    soData(tx.data),
+    Number(tx.valor).toFixed(2),
+    tx.tipo || '',
+    normDesc(tx.descricao),
+  ].join('|');
+}
+
+/** Quantas linhas de cada chave a lista já tem (só as da conta em questão). */
+export function contarPorChave(lista, contaId) {
+  const mapa = new Map();
+  for (const e of lista) {
+    if (e.conta_id !== contaId) continue;
+    const k = chaveBase(e, contaId);
+    mapa.set(k, (mapa.get(k) || 0) + 1);
+  }
+  return mapa;
+}
+
+/**
+ * Quantas linhas de cada chave o LOTE realmente representa.
+ *
+ * Conta por arquivo e fica valendo o MAIOR, porque as duas repetições têm
+ * significados opostos: um mesmo extrato trazendo a linha duas vezes são dois
+ * lançamentos de verdade; dois arquivos com meses sobrepostos trazendo a
+ * mesma linha são o mesmo lançamento contado duas vezes.
+ */
+export function contarPorChaveNoLote(txs, contaId) {
+  const porArquivo = new Map();
+  for (const tx of txs) {
+    const arq = tx._arquivo || '';
+    if (!porArquivo.has(arq)) porArquivo.set(arq, new Map());
+    const m = porArquivo.get(arq);
+    const k = chaveBase(tx, contaId);
+    m.set(k, (m.get(k) || 0) + 1);
+  }
+  const maior = new Map();
+  for (const m of porArquivo.values()) {
+    for (const [k, n] of m) if (n > (maior.get(k) || 0)) maior.set(k, n);
+  }
+  return maior;
+}
+
+/**
+ * Chave gravada em cf_transacoes.hash_dedup — inclui a ordem da ocorrência.
+ * O índice único parcial no banco usa isso como rede de proteção contra
+ * duplo clique, duas abas ou lote interrompido no meio.
+ */
+export function hashDedup(tx, contaId, ocorrencia) {
+  return `${chaveBase(tx, contaId)}|${ocorrencia}`;
+}
 
 export function diffDias(a, b) {
   const da = new Date(`${soData(a)}T00:00:00`), db = new Date(`${soData(b)}T00:00:00`);
