@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { T } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
-import { matchTransf } from '../lib/dedup.js';
 import { sb } from '../supabase.js';
 import ModalVincular from '../modals/ModalVincular.jsx';
 

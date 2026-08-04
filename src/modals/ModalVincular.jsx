@@ -9,7 +9,10 @@ const TIPOS = [
   { v:'receita',       l:'↑ Receita',         c: T.green  },
 ];
 
-export default function ModalVincular({ open, tx, idx, total, contas, cats, onConfirm, onSkip, onClose }) {
+// `sentido` diz de que lado da operação está a transação sendo identificada:
+// 'saida'   → o dinheiro saiu desta conta, falta dizer para ONDE foi (destino)
+// 'entrada' → o dinheiro entrou nesta conta, falta dizer de ONDE veio (origem)
+export default function ModalVincular({ open, tx, idx, total, contas, cats, sentido = 'saida', onConfirm, onSkip, onClose }) {
   const [tipo, setTipo]   = useState('transferencia');
   const [destId, setDestId] = useState('');
   const [catId, setCatId]   = useState('');
@@ -33,7 +36,8 @@ export default function ModalVincular({ open, tx, idx, total, contas, cats, onCo
 
         {/* Info da tx */}
         <div style={{ background:T.bg3, borderRadius:T.radius2, padding:12, marginBottom:18, fontSize:12 }}>
-          {[['Data', fmtD(tx.data)], ['Valor', fmt(tx.valor)], ['Descrição', tx.descricao]].map(([k,v]) => (
+          {[['Data', fmtD(tx.data)], ['Valor', fmt(tx.valor)], ['Descrição', tx.descricao],
+            ['Movimento', sentido === 'entrada' ? '↑ Entrou nesta conta' : '↓ Saiu desta conta']].map(([k,v]) => (
             <div key={k} style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
               <span style={{ color:T.txt3 }}>{k}</span>
               <span style={{ color:k==='Valor'?T.blue:T.txt, fontFamily: k==='Valor'?"'JetBrains Mono',monospace":'inherit' }}>{v}</span>
@@ -56,8 +60,13 @@ export default function ModalVincular({ open, tx, idx, total, contas, cats, onCo
         <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
           {tipo === 'transferencia' && (
             <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-              <label style={{ fontSize:11, color:T.txt3, fontWeight:600, textTransform:'uppercase', letterSpacing:.5 }}>Conta Destino</label>
+              <label style={{ fontSize:11, color:T.txt3, fontWeight:600, textTransform:'uppercase', letterSpacing:.5 }}>
+                {sentido === 'entrada' ? 'Conta de Origem' : 'Conta Destino'}
+              </label>
               <select style={inp} value={destId} onChange={e => setDestId(e.target.value)}>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
+              <span style={{ fontSize:10, color:T.txt3 }}>
+                {sentido === 'entrada' ? 'De qual conta este dinheiro saiu' : 'Para qual conta este dinheiro foi'}
+              </span>
             </div>
           )}
           <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
@@ -72,7 +81,13 @@ export default function ModalVincular({ open, tx, idx, total, contas, cats, onCo
 
         <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:20, paddingTop:16, borderTop:`1px solid ${T.border}` }}>
           <button onClick={onSkip} style={{ padding:'9px 18px', background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, borderRadius:T.radius2, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13 }}>Pular →</button>
-          <button onClick={() => onConfirm({ tipo, conta_destino_id: tipo==='transferencia'?destId:null, categoria_id:catId||null, descricao:desc })}
+          <button onClick={() => onConfirm(
+            tipo === 'transferencia' && sentido === 'entrada'
+              // Entrada: a conta escolhida é a ORIGEM; o destino é a conta do extrato,
+              // preenchida por quem chamou o modal.
+              ? { tipo, conta_origem_id: destId, categoria_id: catId || null, descricao: desc }
+              : { tipo, conta_destino_id: tipo === 'transferencia' ? destId : null, categoria_id: catId || null, descricao: desc }
+          )}
             style={{ padding:'9px 18px', background:T.green, color:'#000', borderRadius:T.radius2, border:'none', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600 }}>Confirmar →</button>
         </div>
       </div>

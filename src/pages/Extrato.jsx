@@ -135,7 +135,14 @@ export default function Extrato({ txs, contas, cats, cartoes, mesAtual, setMesAt
                 <div style={{ width:28, height:28, borderRadius:8, background:bg, color:cor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13 }}>{icon}</div>
                 <div style={{ paddingLeft:10, minWidth:0 }}>
                   <div style={{ fontSize:13, color:T.txt, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.descricao}</div>
-                  <div style={{ fontSize:11, color:T.txt3, marginTop:1 }}>{catNome(t.categoria_id)}{t.conta_destino_id ? ` → ${contaNome(t.conta_destino_id)}` : ''}</div>
+                  <div style={{ fontSize:11, color:T.txt3, marginTop:1 }}>
+                    {catNome(t.categoria_id)}
+                    {t.conta_destino_id && ` → ${contaNome(t.conta_destino_id)}`}
+                    {/* Transferência sem destino sai do saldo da origem e não entra em lugar nenhum — precisa ficar visível */}
+                    {t.tipo === 'transferencia' && !t.conta_destino_id && (
+                      <span style={{ color:T.blue, marginLeft:6 }}>· destino não informado</span>
+                    )}
+                  </div>
                 </div>
                 <div style={{ fontSize:12, color:T.txt3, paddingRight:14, whiteSpace:'nowrap' }}>{contaNome(t.conta_id)}</div>
                 <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12, color:T.txt3, paddingRight:14, whiteSpace:'nowrap' }}>{fmtD(t.data)}</div>

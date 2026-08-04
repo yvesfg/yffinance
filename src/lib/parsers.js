@@ -16,13 +16,33 @@ export function normValor(raw) {
   return parseFloat(raw.replace(/[^0-9.-]/g, ''));
 }
 
-export function detectTipo(desc, valorOrig) {
+// Movimentação entre contas (a mesma operação aparece nos dois extratos)
+const P_TRANSF  = ['ted','doc','pix','transferencia','transferência','transf','entre contas'];
+// Direção quando o extrato não traz sinal no valor (CSV sem coluna D/C)
+const P_ENTRADA = ['recebido','recebida','recebimento','credito','crédito','entrada','deposito','depósito','salário','salario','rendimento','estorno','devolucao','devolução'];
+const P_SAIDA   = ['enviado','enviada','envio','debito','débito','saida','saída','pagamento','compra','saque','tarifa'];
+
+export function ehTransferencia(desc) {
   const d = (desc || '').toLowerCase();
-  if (['ted','doc','pix','transferencia','transferência','transf','entre contas'].some(p => d.includes(p)))
-    return 'transferencia';
-  if (['salário','salario','deposito','depósito','pix recebido','ted recebido','rendimento'].some(p => d.includes(p)) || valorOrig > 0)
-    return 'receita';
-  return 'despesa';
+  return P_TRANSF.some(p => d.includes(p));
+}
+
+/**
+ * Direção da movimentação na conta do extrato: 'entrada' (dinheiro chegou)
+ * ou 'saida' (dinheiro saiu). O sinal do valor manda quando existe; sem ele,
+ * cai nas palavras-chave. É isso que impede "PIX RECEBIDO" de virar débito.
+ */
+export function detectSentido(desc, valorOrig) {
+  if (Number.isFinite(valorOrig) && valorOrig !== 0) return valorOrig > 0 ? 'entrada' : 'saida';
+  const d = (desc || '').toLowerCase();
+  if (P_ENTRADA.some(p => d.includes(p))) return 'entrada';
+  if (P_SAIDA.some(p => d.includes(p)))   return 'saida';
+  return 'saida';
+}
+
+export function detectTipo(desc, valorOrig) {
+  if (ehTransferencia(desc)) return 'transferencia';
+  return detectSentido(desc, valorOrig) === 'entrada' ? 'receita' : 'despesa';
 }
 
 export function parseOFX(content) {
@@ -35,7 +55,7 @@ export function parseOFX(content) {
     const vOrig = parseFloat(get(b, 'TRNAMT').replace(',', '.'));
     const valor = Math.abs(vOrig);
     const descricao = get(b, 'MEMO') || get(b, 'NAME') || 'Transação';
-    return { data, valor, tipo: detectTipo(descricao, vOrig), descricao, _sel: true };
+    return { data, valor, tipo: detectTipo(descricao, vOrig), sentido: detectSentido(descricao, vOrig), descricao, _sel: true };
   }).filter(t => t.data && t.valor);
   return { txs };
 }
@@ -72,10 +92,14 @@ export function parseCSV(content) {
     const valor = Math.abs(vRaw);
     if (!data || !valor || isNaN(valor)) return null;
     const descricao = iDesc >= 0 ? (cols[iDesc] || 'Transação') : 'Transação';
-    const tipo = iTipo >= 0
-      ? (cols[iTipo].toLowerCase().includes('c') ? 'receita' : 'despesa')
-      : detectTipo(descricao, vRaw);
-    return { data, valor, tipo, descricao, _sel: true };
+    // Coluna D/C do banco tem prioridade sobre a heurística de descrição
+    const sentido = iTipo >= 0
+      ? (cols[iTipo].toLowerCase().includes('c') ? 'entrada' : 'saida')
+      : detectSentido(descricao, vRaw);
+    const tipo = ehTransferencia(descricao)
+      ? 'transferencia'
+      : (sentido === 'entrada' ? 'receita' : 'despesa');
+    return { data, valor, tipo, sentido, descricao, _sel: true };
   }).filter(Boolean);
 
   if (!txs.length) return { error: 'Nenhuma transação válida' };

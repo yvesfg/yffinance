@@ -2,10 +2,11 @@ import React, { useState, useRef } from 'react';
 import { T, BANCOS, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { parseOFX, parseCSV } from '../lib/parsers.js';
-import { matchTransf } from '../lib/dedup.js';
+import { acharOperacaoCompleta, acharPernaSaida } from '../lib/dedup.js';
 import { detectParcela, gerarParcelas, jaExisteParcela, uuid } from '../lib/parcelas.js';
 import { sb } from '../supabase.js';
 import ModalParcelas from '../modals/ModalParcelas.jsx';
+import ModalVincular from '../modals/ModalVincular.jsx';
 import ContaSelect from '../components/ContaSelect.jsx';
 
 // Lê um arquivo como texto (Promise)
@@ -38,6 +39,11 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
   const [resultado, setResultado]   = useState(null);
   const [modalParcelas, setModalParcelas] = useState(false);
   const [parcelasDetect, setParcelasDetect] = useState([]);
+  // Entradas de transferência que não acharam a perna de saída correspondente:
+  // o usuário identifica uma a uma no fim da importação.
+  const [pendVinc, setPendVinc]   = useState([]);
+  const [vincIdx, setVincIdx]     = useState(0);
+  const [modalVinc, setModalVinc] = useState(false);
   const fileRef = useRef();
 
   // Meses distintos detectados a partir das datas das transações
@@ -106,7 +112,7 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
         `cf_transacoes?perfil=eq.${perfil}&data=gte.${anoAtras}&data=lte.${doisAnos}&select=id,data,valor,tipo,descricao,descricao_base,conta_id,conta_destino_id,parcela_atual,parcela_total,parcela_grupo`
       ) || [];
 
-      let salvos = 0, duplic = 0, parcelasNovas = 0;
+      let salvos = 0, duplic = 0, parcelasNovas = 0, vinculadas = 0;
 
       // Mapa para agrupar parcelas confirmadas por descrição original
       const parcelasMap = {};
@@ -115,6 +121,8 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
       }
 
       const txsParaSalvar = [];
+      const patches   = [];   // vínculos em linhas que já estão no banco
+      const pendentes = [];   // entradas sem perna de saída → ModalVincular
 
       for (const tx of txsParsed) {
         // --- DEDUP GERAL: mesma conta + data + valor + descrição ---
@@ -126,11 +134,38 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
         );
         if (jaLancado) { duplic++; continue; }
 
-        // --- TRANSFERÊNCIAS ---
+        // --- TRANSFERÊNCIAS: uma operação, dois extratos, UMA linha ---
         if (tx.tipo === 'transferencia') {
-          const jaTransf = matchTransf(existentes, { ...tx, conta_id: contaId });
-          if (jaTransf) { duplic++; continue; }
-          txsParaSalvar.push({ ...tx, conta_id: contaId, perfil, status: 'pago' });
+          const sentido = tx.sentido || 'saida';
+
+          // Esta perna já está representada por uma operação completa
+          // (reimportação, ou o outro lado já foi vinculado antes)?
+          const completa = acharOperacaoCompleta(existentes, tx, contaId, sentido);
+          if (completa) { completa._consumida = true; duplic++; continue; }
+
+          if (sentido === 'entrada') {
+            // Procura a saída órfã correspondente (o lote em andamento também
+            // está em `existentes`, ver push mais abaixo)
+            const alvo = acharPernaSaida(existentes, tx, contaId);
+            if (alvo) {
+              // Marca no objeto em memória também, para que uma segunda entrada
+              // de mesmo valor no lote não reivindique a mesma perna.
+              alvo.conta_destino_id = contaId;
+              if (alvo.id) patches.push({ id: alvo.id, conta_destino_id: contaId });
+              vinculadas++;
+              continue;
+            }
+            // Sem par: não dá para inserir como transferência (debitaria esta
+            // conta em vez de creditar). Vai para identificação manual.
+            pendentes.push(tx);
+            continue;
+          }
+
+          // Saída: entra sem destino e fica aguardando a perna de entrada
+          const saida = { ...tx, conta_id: contaId, conta_destino_id: null, perfil, status: 'pago' };
+          txsParaSalvar.push(saida);
+          existentes.push(saida);   // visível para as entradas seguintes do lote
+          salvos++;
           continue;
         }
 
@@ -178,17 +213,67 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
         await sb('cf_transacoes', 'POST', limpar(tx));
       }
 
-      setResultado({ salvos, duplic, parcelasNovas });
+      // Vincular as pernas de entrada que acharam a saída correspondente:
+      // completa a operação existente em vez de criar uma segunda linha.
+      for (const p of patches) {
+        await sb('cf_transacoes', 'PATCH', { conta_destino_id: p.conta_destino_id }, `id=eq.${p.id}`);
+      }
+
+      setResultado({ salvos, duplic, parcelasNovas, vinculadas, pendentes: pendentes.length });
       onToast(
-        `${salvos} importados${parcelasNovas ? `, ${parcelasNovas} parcelas futuras criadas` : ''}, ${duplic} duplicatas ignoradas`,
+        `${salvos} importados${parcelasNovas ? `, ${parcelasNovas} parcelas futuras criadas` : ''}${vinculadas ? `, ${vinculadas} transferências vinculadas` : ''}, ${duplic} duplicatas ignoradas`,
         'success'
       );
-      onDone?.();
+
+      // Entradas sem par: identificar uma a uma antes de encerrar
+      if (pendentes.length) {
+        setPendVinc(pendentes); setVincIdx(0); setModalVinc(true);
+      } else {
+        onDone?.();
+      }
     } catch (err) {
       onToast('Erro na importação: ' + err.message, 'error');
     } finally {
       setImportando(false);
     }
+  };
+
+  // Encerra a fila de identificação manual
+  const fecharVinculo = () => {
+    setModalVinc(false);
+    setResultado(r => (r ? { ...r, pendentes: 0 } : r));
+    onDone?.();
+  };
+
+  const avancarVinculo = () => {
+    if (vincIdx + 1 < pendVinc.length) setVincIdx(v => v + 1);
+    else fecharVinculo();
+  };
+
+  // Entrada de transferência sem par: o usuário diz de onde veio (ou que não
+  // era transferência). Só aqui a linha é criada — com origem e destino certos.
+  const confirmarVinculo = async dados => {
+    const tx = pendVinc[vincIdx];
+    if (dados.tipo === 'transferencia' && !dados.conta_origem_id) {
+      onToast('Selecione a conta de origem (ou marque como receita)', 'error');
+      return;
+    }
+    try {
+      const base = {
+        data: tx.data, valor: tx.valor,
+        descricao: dados.descricao || tx.descricao,
+        categoria_id: dados.categoria_id || null,
+        perfil, status: 'pago', origem: 'importacao',
+      };
+      await sb('cf_transacoes', 'POST', dados.tipo === 'transferencia'
+        ? { ...base, tipo: 'transferencia', conta_id: dados.conta_origem_id, conta_destino_id: contaId }
+        : { ...base, tipo: dados.tipo, conta_id: contaId, conta_destino_id: null });
+      setResultado(r => (r ? { ...r, salvos: r.salvos + 1 } : r));
+    } catch (err) {
+      onToast('Erro ao vincular: ' + err.message, 'error');
+      return;
+    }
+    avancarVinculo();
   };
 
   return (
@@ -290,6 +375,8 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ background: T.greenGlow, color: T.green, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>✓ {resultado.salvos} importados</div>
             {resultado.parcelasNovas > 0 && <div style={{ background: T.purpleGlow, color: T.purple, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>📅 {resultado.parcelasNovas} parcelas futuras criadas</div>}
+            {resultado.vinculadas > 0 && <div style={{ background: T.blueGlow, color: T.blue, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>⇄ {resultado.vinculadas} transferências vinculadas</div>}
+            {resultado.pendentes > 0 && <div style={{ background: T.blueGlow, color: T.blue, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>⇄ {resultado.pendentes} a identificar</div>}
             {resultado.duplic > 0 && <div style={{ background: T.bg3, color: T.txt2, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13 }}>⊘ {resultado.duplic} duplicatas ignoradas</div>}
           </div>
         </div>
@@ -301,6 +388,20 @@ export default function Importar({ contas, cats, perfil, onToast, onCreateConta,
         parcelas={parcelasDetect}
         onConfirm={handleConfirmarParcelas}
         onClose={() => setModalParcelas(false)}
+      />
+
+      {/* Entradas de transferência sem perna de saída correspondente */}
+      <ModalVincular
+        open={modalVinc}
+        tx={pendVinc[vincIdx]}
+        idx={vincIdx}
+        total={pendVinc.length}
+        contas={contas.filter(c => c.id !== contaId)}
+        cats={cats}
+        sentido="entrada"
+        onConfirm={confirmarVinculo}
+        onSkip={avancarVinculo}
+        onClose={fecharVinculo}
       />
     </div>
   );
