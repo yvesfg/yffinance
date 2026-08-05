@@ -4,6 +4,7 @@ import { T, BANCOS, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { parseOFX, parseCSV } from '../lib/parsers.js';
 import { acharOperacaoCompleta, acharContraparteSaida, chaveBase, contarPorChave, contarPorChaveNoLote, hashDedup } from '../lib/dedup.js';
+import { cicloDaCompra, datasDoCiclo, ehPagamentoFatura, acharFaturaParaPagamento } from '../lib/faturas.js';
 import { detectParcela, parcelaDaTx, gerarParcelas, jaExisteParcela, uuid } from '../lib/parcelas.js';
 import { lerDocumento } from '../lib/aiIntake.js';
 import { indicePorHistorico, categorizarLote, sugerirCategoria } from '../lib/categorizar.js';
@@ -176,7 +177,20 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         `cf_transacoes?perfil=eq.${perfil}&data=gte.${anoAtras}&data=lte.${doisAnos}&select=id,data,valor,tipo,descricao,descricao_base,conta_id,conta_destino_id,cartao_id,parcela_atual,parcela_total,parcela_grupo`
       ) || [];
 
-      let salvos = 0, duplic = 0, parcelasNovas = 0, vinculadas = 0, creditosFatura = 0;
+      let salvos = 0, duplic = 0, parcelasNovas = 0, vinculadas = 0, creditosFatura = 0, pagamentosVinc = 0;
+
+      // Faturas em aberto dos cartões que este extrato pode estar pagando — só
+      // olha cartões cuja "conta de pagamento" é a conta selecionada. Buscado
+      // uma vez, antes do laço, porque decide a CLASSIFICAÇÃO da linha (o hash
+      // de dedup depende do tipo final, não pode mudar no meio do laço).
+      let faturasCandidatas = [];
+      if (!noCartao) {
+        const cartoesLigados = cartoes.filter(c => c.conta_pagamento_id === contaId);
+        if (cartoesLigados.length) {
+          const ids = cartoesLigados.map(c => c.id).join(',');
+          faturasCandidatas = await sb(`cf_faturas?cartao_id=in.(${ids})&status=in.(aberta,fechada,parcial)&select=id,cartao_id,valor_total,valor_pago,data_vencimento`) || [];
+        }
+      }
 
       // Monta a linha conforme o destino: conta ou cartão de crédito.
       // Na fatura todo gasto é tipo 'cartao' com cartao_id — é assim que a
@@ -198,9 +212,27 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
       // Quantas linhas de cada chave o banco já tem, e quantas o arquivo traz.
       // Entra só a diferença: reimportar não duplica, e o extrato que traz dois
       // lançamentos idênticos legítimos continua entrando com os dois.
-      // Na fatura a linha é gravada como tipo 'cartao'; a chave tem que ser
-      // calculada sobre o tipo FINAL, senão reimportar não bate com o banco.
-      const lote = noCartao ? txsParsed.map(t => ({ ...t, tipo: 'cartao' })) : txsParsed;
+      // Na fatura a linha é gravada como tipo 'cartao'; se for pagamento de
+      // fatura, vira 'pagamento_fatura'. A chave de dedup tem que ser calculada
+      // sobre o tipo FINAL — reclassificar depois do hash faria reimportar não
+      // bater com o banco.
+      const lote = noCartao
+        ? txsParsed.map(t => ({ ...t, tipo: 'cartao' }))
+        : txsParsed.map(tx => {
+            if (tx.tipo !== 'despesa' || !ehPagamentoFatura(tx.descricao)) return tx;
+            // Guarda de compatibilidade: se esta mesma linha já foi importada
+            // ANTES desta regra existir (está gravada como despesa comum), não
+            // reclassifica — criaria uma segunda linha, agora como pagamento de
+            // fatura, duplicando o que já está lançado.
+            const jaComoDespesa = existentes.some(e =>
+              e.tipo === 'despesa' && e.conta_id === contaId &&
+              String(e.data).slice(0, 10) === tx.data &&
+              Math.abs(Number(e.valor) - Number(tx.valor)) < 0.01
+            );
+            if (jaComoDespesa) return tx;
+            const fatura = acharFaturaParaPagamento(faturasCandidatas, { valor: tx.valor, data: tx.data });
+            return fatura ? { ...tx, tipo: 'pagamento_fatura', fatura_id: fatura.id } : tx;
+          });
 
       const noBanco   = contarPorChave(existentes, destinoId, campoAlvo);
       const noArquivo = contarPorChaveNoLote(lote, destinoId);
@@ -289,7 +321,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
       // e o lote inteiro falha. Como cada linha omitia o que estava vazio
       // (parcela só nas parceladas, cartao_id só na fatura...), bastava um
       // extrato variado para nada entrar.
-      const COLS = ['data', 'tipo', 'descricao', 'valor', 'conta_id', 'conta_destino_id', 'categoria_id', 'status', 'origem', 'observacao', 'perfil', 'parcela_atual', 'parcela_total', 'parcela_grupo', 'descricao_base', 'cartao_id', 'hash_dedup'];
+      const COLS = ['data', 'tipo', 'descricao', 'valor', 'conta_id', 'conta_destino_id', 'categoria_id', 'status', 'origem', 'observacao', 'perfil', 'parcela_atual', 'parcela_total', 'parcela_grupo', 'descricao_base', 'cartao_id', 'hash_dedup', 'fatura_id'];
       const limpar = tx => {
         const o = {};
         for (const k of COLS) o[k] = (tx[k] === undefined || tx[k] === '') ? null : tx[k];
@@ -304,19 +336,67 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
       txsParaSalvar.length = 0;
       txsParaSalvar.push(...cat.txs);
 
+      // Fatura de cartão: garante que toda compra tenha uma cf_faturas para
+      // cair dentro, criando as que faltarem no ciclo certo (fechamento e
+      // vencimento vêm do cartão). Sem isso a fatura fica sem dono no banco —
+      // existe como gasto de cartão, mas nenhuma cf_faturas sabe que ele é dela.
+      let mapaFat = new Map();   // mes_referencia -> fatura_id, usado também depois do insert
+      if (noCartao && cartaoId && txsParaSalvar.length) {
+        const cartaoObj = cartoes.find(c => c.id === cartaoId);
+        const diaFech = Number(cartaoObj?.dia_fechamento) || 0;
+        const diaVenc = Number(cartaoObj?.dia_vencimento) || 0;
+        const mesesNecessarios = [...new Set(txsParaSalvar.map(t => cicloDaCompra(t.data, diaFech)))];
+        const existentesFat = await sb(`cf_faturas?cartao_id=eq.${cartaoId}&mes_referencia=in.(${mesesNecessarios.join(',')})`) || [];
+        mapaFat = new Map(existentesFat.map(f => [f.mes_referencia, f.id]));
+        const faltantes = mesesNecessarios.filter(m => !mapaFat.has(m));
+        if (faltantes.length) {
+          const novasFaturas = faltantes.map(m => {
+            const { fechamento, vencimento } = datasDoCiclo(m, diaFech, diaVenc);
+            return { cartao_id: cartaoId, perfil, mes_referencia: m, valor_total: 0, status: 'aberta', data_fechamento: fechamento, data_vencimento: vencimento };
+          });
+          const criadas = await sb('cf_faturas', 'POST', novasFaturas);
+          (Array.isArray(criadas) ? criadas : [criadas]).forEach(f => mapaFat.set(f.mes_referencia, f.id));
+        }
+        txsParaSalvar.forEach(t => { t.fatura_id = mapaFat.get(cicloDaCompra(t.data, diaFech)) || null; });
+      }
+
       // Insert em lote: uma requisição por bloco em vez de uma por linha, e o
       // índice único descarta o que já existe (duplo clique, duas abas, lote
       // reenviado) sem derrubar o resto.
       let inseridas = 0;
+      const salvasRows = [];   // linhas REALMENTE gravadas — o banco devolve o id
       const BLOCO = 200;
       for (let i = 0; i < txsParaSalvar.length; i += BLOCO) {
         const bloco = txsParaSalvar.slice(i, i + BLOCO).map(limpar);
         const r = await sb('cf_transacoes', 'POST', bloco, '', 'resolution=ignore-duplicates');
-        inseridas += Array.isArray(r) ? r.length : bloco.length;
+        if (Array.isArray(r)) { inseridas += r.length; salvasRows.push(...r); }
+        else inseridas += bloco.length;
       }
       // O banco pode ter recusado linhas que o cliente achou novas
       const bloqueadas = txsParaSalvar.length - inseridas;
       if (bloqueadas > 0) { duplic += bloqueadas; salvos = Math.max(0, salvos - bloqueadas); }
+
+      // Soma de volta o total da fatura a partir do banco, não do que este
+      // import trouxe: reimportar, ou importar em duas vezes, não pode fazer o
+      // total divergir do que realmente está lançado.
+      if (noCartao && mapaFat.size) {
+        for (const faturaId of new Set(mapaFat.values())) {
+          const linhas = await sb(`cf_transacoes?fatura_id=eq.${faturaId}&tipo=eq.cartao&select=valor`) || [];
+          const total = linhas.reduce((s, r) => s + Number(r.valor), 0);
+          await sb('cf_faturas', 'PATCH', { valor_total: total }, `id=eq.${faturaId}`);
+        }
+      }
+
+      // Pagamento de fatura reconhecido no extrato: registra a baixa. Só para
+      // linhas que o banco realmente gravou agora (salvasRows) — se a linha já
+      // existia, o pagamento já foi registrado da vez anterior.
+      const pagamentosNovos = salvasRows.filter(r => r.tipo === 'pagamento_fatura' && r.fatura_id);
+      if (pagamentosNovos.length) {
+        await sb('cf_fatura_pagamentos', 'POST', pagamentosNovos.map(r => ({
+          fatura_id: r.fatura_id, transacao_id: r.id, conta_id: r.conta_id, valor: r.valor, data: r.data,
+        })));
+        pagamentosVinc = pagamentosNovos.length;
+      }
 
       // Converte em transferência as saídas que acharam a entrada correspondente
       for (const p of patches) {
@@ -343,7 +423,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         carregarHistorico();
       }
 
-      setResultado({ salvos, duplic, parcelasNovas, vinculadas, creditosFatura, categorizados: cat.categorizados });
+      setResultado({ salvos, duplic, parcelasNovas, vinculadas, creditosFatura, categorizados: cat.categorizados, pagamentosVinc });
       onToast(
         `${salvos} importados${parcelasNovas ? `, ${parcelasNovas} parcelas futuras criadas` : ''}${vinculadas ? `, ${vinculadas} transferências vinculadas` : ''}, ${duplic} duplicatas ignoradas`,
         'success'
@@ -505,6 +585,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
             {resultado.parcelasNovas > 0 && <div style={{ background: T.purpleGlow, color: T.purple, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>📅 {resultado.parcelasNovas} parcelas futuras criadas</div>}
             {resultado.vinculadas > 0 && <div style={{ background: T.blueGlow, color: T.blue, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>⇄ {resultado.vinculadas} transferências vinculadas</div>}
             {resultado.categorizados > 0 && <div style={{ background: T.goldGlow, color: T.gold, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>🏷 {resultado.categorizados} categorizados automaticamente</div>}
+            {resultado.pagamentosVinc > 0 && <div style={{ background: T.purpleGlow, color: T.purple, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>🧾 {resultado.pagamentosVinc} pagamento(s) de fatura reconhecidos</div>}
             {resultado.creditosFatura > 0 && <div style={{ background: T.bg3, color: T.txt2, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13 }}>↩ {resultado.creditosFatura} créditos da fatura ignorados (pagamento/estorno)</div>}
             {resultado.duplic > 0 && <div style={{ background: T.bg3, color: T.txt2, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13 }}>⊘ {resultado.duplic} duplicatas ignoradas</div>}
           </div>

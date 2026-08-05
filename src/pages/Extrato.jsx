@@ -5,6 +5,7 @@ import AvisoPeriodoVazio from '../components/AvisoPeriodoVazio.jsx';
 import { T, BANCOS } from '../constants.js';
 import { fmt, fmtD, exportCSV } from '../lib/formatters.js';
 import { totais } from '../lib/regime.js';
+import RegimeToggle from '../components/RegimeToggle.jsx';
 
 const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box' };
 
@@ -36,7 +37,9 @@ export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriod
     return lista;
   }, [txs, filtTipo, filtConta, filtCat, busca, ordenacao]);
 
-  const { entradas: totRec, saidas: totDesp } = totais(filtradas, 'competencia');
+  const [regime, setRegime] = useState(() => localStorage.getItem('yf_regime') || 'competencia');
+  const mudarRegime = r => { setRegime(r); localStorage.setItem('yf_regime', r); };
+  const { entradas: totRec, saidas: totDesp } = totais(filtradas, regime);
 
   const contaNome = id => contas.find(c => c.id === id)?.nome || '';
   const catNome   = id => { const c = cats.find(c => c.id === id); return c ? `${c.icone||''} ${c.nome}` : ''; };
@@ -57,7 +60,10 @@ export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriod
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
         <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Extrato</h2>
-        <PeriodoSelect value={periodo} onChange={setPeriodo} />
+        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+          <RegimeToggle value={regime} onChange={mudarRegime} />
+          <PeriodoSelect value={periodo} onChange={setPeriodo} />
+        </div>
       </div>
 
       <AvisoPeriodoVazio perfil={perfil} periodo={periodo} setPeriodo={setPeriodo} vazio={txs.length === 0} />

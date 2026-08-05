@@ -6,6 +6,8 @@
 //  seguinte. Toda a alocação de compra e de parcela passa por aqui.
 // ─────────────────────────────────────────────────────────
 
+import { semAcento } from './parsers.js';
+
 const pad = n => String(n).padStart(2, '0');
 const ultimoDia = (a, m) => new Date(a, m, 0).getDate();
 const somaMeses = (ym, n) => {
@@ -88,4 +90,45 @@ export function statusDaFatura(fatura, hoje = new Date().toISOString().slice(0, 
 export function limiteDisponivel(cartao, faturas = []) {
   const emAberto = faturas.reduce((s, f) => s + saldoDevedor(f), 0);
   return Math.max(0, (Number(cartao?.limite) || 0) - emAberto);
+}
+
+// ─────────────────────────────────────────────────────────
+//  Reconhecer o pagamento da fatura dentro do extrato da CONTA.
+//
+//  "Pagamento efetuado: Pagamento fatura cartao Inter" chega no extrato como
+//  uma despesa qualquer. Sem isso, ela conta como despesa E as compras do
+//  cartão contam como saída — o mesmo dinheiro duas vezes.
+// ─────────────────────────────────────────────────────────
+
+const RE_PAGAMENTO_FATURA = /pag(to|amento)[\s\S]{0,25}fatura|fatura[\s\S]{0,25}cartao|pgto[\s\S]{0,20}(cartao|fatura)|deb[\s\S]{0,20}autom[\s\S]{0,20}fatura/i;
+
+export function ehPagamentoFatura(descricao) {
+  return RE_PAGAMENTO_FATURA.test(semAcento(String(descricao || '')).toLowerCase());
+}
+
+/**
+ * Entre as faturas em aberto de um cartão, qual esta transação de saída está
+ * quitando. Duas tentativas, nesta ordem:
+ *
+ * 1. O valor bate com a dívida da fatura (dentro de R$1 ou 2%) — é o caso do
+ *    débito automático, que paga o total certinho.
+ * 2. Não bate valor nenhum, mas o vencimento está a poucos dias da data do
+ *    pagamento — é um pagamento parcial ou com juros/desconto.
+ *
+ * Sem nenhum dos dois, devolve null: melhor deixar como despesa comum do que
+ * vincular à fatura errada.
+ */
+export function acharFaturaParaPagamento(faturas, { valor, data }, janelaDias = 10) {
+  const abertas = (faturas || []).filter(f => saldoDevedor(f) > 0.009);
+  if (!abertas.length) return null;
+
+  const diffDias = (a, b) => Math.abs((new Date(`${a}T00:00:00`) - new Date(`${b}T00:00:00`)) / 86400000);
+  const porData = lista => lista.slice().sort((a, b) =>
+    diffDias(a.data_vencimento || data, data) - diffDias(b.data_vencimento || data, data));
+
+  const porValor = abertas.filter(f => Math.abs(saldoDevedor(f) - Number(valor)) < Math.max(1, saldoDevedor(f) * 0.02));
+  if (porValor.length) return porData(porValor)[0];
+
+  const proximas = abertas.filter(f => f.data_vencimento && diffDias(f.data_vencimento, data) <= janelaDias);
+  return proximas.length ? porData(proximas)[0] : null;
 }

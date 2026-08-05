@@ -229,7 +229,7 @@ export default function App() {
     if (detalhe?.tipo === 'cartao') {
       const cartao = cartoes.find(c => c.id === detalhe.id);
       if (cartao) return <FaturaDetalhe {...pageProps} cartao={cartao} onVoltar={() => setDetalhe(null)}
-        onEdit={openEditTx} onDelete={deleteTx} onEditCartao={c => { setEditCartao(c); setModalCartao(true); }} />;
+        onEdit={openEditTx} onDelete={deleteTx} onEditCartao={c => { setEditCartao(c); setModalCartao(true); }} onToast={showToast} />;
     }
 
     switch (pagina) {

@@ -32,7 +32,9 @@ export default function ContaDetalhe({ conta, txs, contas, cats, periodo, setPer
 
   const entradas = daConta.filter(t => t.tipo === 'receita' || (t.tipo === 'transferencia' && t.conta_destino_id === conta.id))
     .reduce((s, t) => s + Number(t.valor), 0);
-  const saidas = daConta.filter(t => (t.tipo === 'despesa' || t.tipo === 'cartao') && t.conta_id === conta.id)
+  // Pagamento de fatura sai da conta — sem contá-lo aqui, este total ficava
+  // menor que o saldo final (que já usa saldoDaConta, esse sim completo).
+  const saidas = daConta.filter(t => (t.tipo === 'despesa' || t.tipo === 'pagamento_fatura') && t.conta_id === conta.id)
     .reduce((s, t) => s + Number(t.valor), 0);
   const transfSaida = daConta.filter(t => t.tipo === 'transferencia' && t.conta_id === conta.id)
     .reduce((s, t) => s + Number(t.valor), 0);

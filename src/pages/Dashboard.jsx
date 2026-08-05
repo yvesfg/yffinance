@@ -6,6 +6,7 @@ import { rotuloPeriodo, periodoMes, periodoLivre } from '../lib/periodo.js';
 import { T, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { totais, saidasPorCategoria, saldoDaConta } from '../lib/regime.js';
+import RegimeToggle from '../components/RegimeToggle.jsx';
 import { sb } from '../supabase.js';
 import BankLogo from '../components/BankLogo.jsx';
 
@@ -58,10 +59,11 @@ function proximoMes(ym) {
 
 export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesAtual, perfil, onAbrirConta }) {
   const isMobile = useIsMobile();
-  // Regime de competência é o padrão (gasto no dia da compra). O alternador
-  // para caixa entra na Etapa 3; a regra que impede contar o mesmo dinheiro
-  // duas vezes já vale aqui.
-  const regime = 'competencia';
+  // Competência (gasto no dia da compra) é o padrão — o que a maioria dos
+  // apps de finanças mostra. Guardado por perfil: pessoal e empresa não
+  // precisam concordar no regime preferido.
+  const [regime, setRegime] = useState(() => localStorage.getItem('yf_regime') || 'competencia');
+  const mudarRegime = r => { setRegime(r); localStorage.setItem('yf_regime', r); };
   const { entradas: rec, saidas, resultado } = totais(txs, regime);
   const desp = txs.filter(t => t.tipo === 'despesa').reduce((s, t) => s + Number(t.valor), 0);
   const cart = txs.filter(t => t.tipo === 'cartao').reduce((s, t) => s + Number(t.valor), 0);
@@ -152,7 +154,10 @@ export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesA
           <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 700, color: T.txt, margin: 0, letterSpacing: -.5 }}>Dashboard</h2>
           <p style={{ fontSize: 12, color: T.txt3, marginTop: 3 }}>{perfil === 'pessoal' ? 'Finanças pessoais' : 'YFGroup Transportes'} · {rotuloPeriodo(periodo)}</p>
         </div>
-        <PeriodoSelect value={periodo} onChange={setPeriodo} />
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <RegimeToggle value={regime} onChange={mudarRegime} />
+          <PeriodoSelect value={periodo} onChange={setPeriodo} />
+        </div>
       </div>
 
       <AvisoPeriodoVazio perfil={perfil} periodo={periodo} setPeriodo={setPeriodo} vazio={txs.length === 0} />
