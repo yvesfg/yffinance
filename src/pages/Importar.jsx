@@ -298,11 +298,18 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         salvos++;
       }
 
-      // Mantém apenas colunas reais de cf_transacoes (remove _sel, sentido e outros auxiliares)
+      // Mantém apenas colunas reais de cf_transacoes (remove _sel, sentido e outros auxiliares).
+      //
+      // TODAS as colunas vão em TODAS as linhas, preenchendo com null o que não
+      // se aplica: no insert em lote o PostgREST exige que os objetos tenham
+      // exatamente as mesmas chaves, senão devolve "All object keys must match"
+      // e o lote inteiro falha. Como cada linha omitia o que estava vazio
+      // (parcela só nas parceladas, cartao_id só na fatura...), bastava um
+      // extrato variado para nada entrar.
       const COLS = ['data', 'tipo', 'descricao', 'valor', 'conta_id', 'conta_destino_id', 'categoria_id', 'status', 'origem', 'observacao', 'perfil', 'parcela_atual', 'parcela_total', 'parcela_grupo', 'descricao_base', 'cartao_id', 'hash_dedup'];
       const limpar = tx => {
         const o = {};
-        for (const k of COLS) if (tx[k] !== undefined && tx[k] !== '') o[k] = tx[k];
+        for (const k of COLS) o[k] = (tx[k] === undefined || tx[k] === '') ? null : tx[k];
         o.origem = 'importacao';
         return o;
       };
@@ -517,8 +524,10 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
                         {parc.atual}/{parc.total}
                       </span>
                     )}
-                    <span style={{ fontFamily: "'JetBrains Mono',monospace", color: t.tipo === 'receita' ? T.green : T.red, flexShrink: 0 }}>
-                      {t.tipo === 'receita' ? '+' : '-'}{fmt(t.valor)}
+                    {/* O sinal segue o SENTIDO, não o tipo: "Pix recebido" é
+                        transferência e entrava aqui como -R$ em vermelho. */}
+                    <span style={{ fontFamily: "'JetBrains Mono',monospace", color: (t.sentido || (t.tipo === 'receita' ? 'entrada' : 'saida')) === 'entrada' ? T.green : T.red, flexShrink: 0 }}>
+                      {(t.sentido || (t.tipo === 'receita' ? 'entrada' : 'saida')) === 'entrada' ? '+' : '-'}{fmt(t.valor)}
                     </span>
                   </div>
                 );
