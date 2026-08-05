@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { useIsMobile } from '../lib/useMedia.js';
 import PeriodoSelect from '../components/PeriodoSelect.jsx';
+import AvisoPeriodoVazio from '../components/AvisoPeriodoVazio.jsx';
 import { T, BANCOS } from '../constants.js';
 import { fmt, fmtD, exportCSV } from '../lib/formatters.js';
 
 const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box' };
 
-export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriodo, onEdit, onDelete }) {
+export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriodo, perfil, onEdit, onDelete }) {
   const isMobile = useIsMobile();
   const [filtTipo, setFiltTipo] = useState('todos');
   const [filtConta, setFiltConta] = useState('');
@@ -58,6 +59,8 @@ export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriod
         <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Extrato</h2>
         <PeriodoSelect value={periodo} onChange={setPeriodo} />
       </div>
+
+      <AvisoPeriodoVazio perfil={perfil} periodo={periodo} setPeriodo={setPeriodo} vazio={txs.length === 0} />
 
       {/* Resumo */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:18 }}>

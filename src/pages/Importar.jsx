@@ -349,7 +349,11 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         'success'
       );
 
-      onDone?.();
+      // Entrega a faixa de datas do que foi importado: sem isso o app voltava
+      // para o período atual e mostrava tela vazia, dando a impressão de que a
+      // importação não fez nada.
+      const datas = txsParsed.map(t => String(t.data).slice(0, 10)).filter(Boolean).sort();
+      onDone?.(datas.length ? { inicio: datas[0], fim: datas[datas.length - 1] } : null);
     } catch (err) {
       onToast('Erro na importação: ' + err.message, 'error');
     } finally {

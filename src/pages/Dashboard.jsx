@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useIsMobile } from '../lib/useMedia.js';
 import PeriodoSelect from '../components/PeriodoSelect.jsx';
+import AvisoPeriodoVazio from '../components/AvisoPeriodoVazio.jsx';
 import { rotuloPeriodo, periodoMes, periodoLivre } from '../lib/periodo.js';
 import { T, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
@@ -139,26 +140,6 @@ export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesA
 
   const [ano, mes] = mesAtual.split('-').map(Number);
 
-  // Faixa de datas que existe na base, para poder apontar o caminho quando o
-  // período escolhido não tem nada.
-  const [faixa, setFaixa] = useState(null);
-  useEffect(() => {
-    if (txs.length > 0) { setFaixa(null); return; }
-    let vivo = true;
-    (async () => {
-      try {
-        const [ini, fim] = await Promise.all([
-          sb(`cf_transacoes?perfil=eq.${perfil}&select=data&order=data.asc&limit=1`),
-          sb(`cf_transacoes?perfil=eq.${perfil}&select=data&order=data.desc&limit=1`),
-        ]);
-        const total = await sb(`cf_transacoes?perfil=eq.${perfil}&select=id&limit=1000`);
-        if (!vivo || !ini?.length || !fim?.length) return;
-        setFaixa({ primeira: ini[0].data, ultima: fim[0].data, qtd: (total || []).length });
-      } catch { if (vivo) setFaixa(null); }
-    })();
-    return () => { vivo = false; };
-  }, [txs.length, perfil]);
-
   const catMap = {};
   txs.filter(t => t.tipo === 'despesa' || t.tipo === 'cartao').forEach(t => {
     const cat = cats.find(c => c.id === t.categoria_id);
@@ -182,29 +163,7 @@ export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesA
         <PeriodoSelect value={periodo} onChange={setPeriodo} />
       </div>
 
-      {/* Período vazio mas existe movimento em outro lugar. Era exatamente o
-          que acontecia depois de importar: extrato de janeiro a junho, tela em
-          agosto, e nenhuma pista de que os dados estavam lá. */}
-      {txs.length === 0 && faixa && (
-        <div style={{ background: T.bg2, border: `1px solid ${T.gold}40`, borderRadius: T.radius, padding: '14px 18px', marginBottom: 16 }}>
-          <div style={{ color: T.gold, fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
-            Nenhum lançamento em {rotuloPeriodo(periodo)}
-          </div>
-          <div style={{ fontSize: 12, color: T.txt2 }}>
-            Você tem {faixa.qtd} lançamentos entre {fmtD(faixa.primeira)} e {fmtD(faixa.ultima)}.
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            <button onClick={() => setPeriodo(periodoMes(faixa.ultima.slice(0, 7)))}
-              style={{ background: T.green, color: '#000', border: 'none', borderRadius: T.radius3, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans',sans-serif" }}>
-              Ir para {rotuloPeriodo(periodoMes(faixa.ultima.slice(0, 7)))}
-            </button>
-            <button onClick={() => setPeriodo(periodoLivre(faixa.primeira, faixa.ultima))}
-              style={{ background: T.bg3, color: T.txt2, border: `1px solid ${T.border2}`, borderRadius: T.radius3, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans',sans-serif" }}>
-              Ver tudo que existe
-            </button>
-          </div>
-        </div>
-      )}
+      <AvisoPeriodoVazio perfil={perfil} periodo={periodo} setPeriodo={setPeriodo} vazio={txs.length === 0} />
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 14, marginBottom: 14 }}>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useIsMobile } from '../lib/useMedia.js';
 import PeriodoSelect from '../components/PeriodoSelect.jsx';
+import AvisoPeriodoVazio from '../components/AvisoPeriodoVazio.jsx';
 import { T } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 
@@ -13,7 +14,7 @@ const TIPO_INFO = {
   cartao:        { label:'▣ Cartão',         color: T.purple, bg: T.purpleGlow },
 };
 
-export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit, onDelete, periodo, setPeriodo }) {
+export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit, onDelete, periodo, setPeriodo, perfil }) {
   const isMobile = useIsMobile();
   const [filtTipo, setFiltTipo] = useState('todos');
   const [filtStatus, setFiltStatus] = useState('todos');
@@ -36,6 +37,8 @@ export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit,
           <button onClick={onNew} style={{ background:T.green, color:'#000', border:'none', borderRadius:T.radius2, padding:'8px 16px', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600 }}>+ Novo</button>
         </div>
       </div>
+
+      <AvisoPeriodoVazio perfil={perfil} periodo={periodo} setPeriodo={setPeriodo} vazio={txs.length === 0} />
 
       {/* Filtros */}
       <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap' }}>
