@@ -29,11 +29,19 @@ export function chaveBase(tx, contaId) {
   ].join('|');
 }
 
-/** Quantas linhas de cada chave a lista já tem (só as da conta em questão). */
-export function contarPorChave(lista, contaId) {
+/**
+ * Quantas linhas de cada chave a lista já tem (só as do destino em questão).
+ *
+ * `campo` escolhe qual coluna identifica o destino — 'conta_id' para extrato
+ * de conta, 'cartao_id' para fatura de cartão. Sem essa distinção, uma linha
+ * de cartão (que sempre tem conta_id NULL) nunca batia com nada, e a
+ * contagem "já existe no banco" dava zero sempre — reimportar QUALQUER
+ * fatura duplicava tudo, porque nada nunca era reconhecido como já existente.
+ */
+export function contarPorChave(lista, contaId, campo = 'conta_id') {
   const mapa = new Map();
   for (const e of lista) {
-    if (e.conta_id !== contaId) continue;
+    if (e[campo] !== contaId) continue;
     const k = chaveBase(e, contaId);
     mapa.set(k, (mapa.get(k) || 0) + 1);
   }

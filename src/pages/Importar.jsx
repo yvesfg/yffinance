@@ -4,7 +4,7 @@ import { T, BANCOS, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { parseOFX, parseCSV } from '../lib/parsers.js';
 import { acharOperacaoCompleta, acharContraparteSaida, chaveBase, contarPorChave, contarPorChaveNoLote, hashDedup } from '../lib/dedup.js';
-import { cicloDaCompra, datasDoCiclo, ehPagamentoFatura, acharFaturaParaPagamento } from '../lib/faturas.js';
+import { cicloDaCompra, datasDoCiclo, ehPagamentoFatura, ehEstornoDescricao, acharFaturaParaPagamento } from '../lib/faturas.js';
 import { detectParcela, parcelaDaTx, gerarParcelas, jaExisteParcela, uuid } from '../lib/parcelas.js';
 import { lerDocumento } from '../lib/aiIntake.js';
 import { indicePorHistorico, categorizarLote, sugerirCategoria } from '../lib/categorizar.js';
@@ -261,15 +261,28 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
             return fatura ? { ...tx, tipo: 'pagamento_fatura', fatura_id: fatura.id } : tx;
           });
 
-      // Estorno marcado no modal de parcelas: "Parcela X de Y" que na
-      // verdade é dinheiro voltando. Vira entrada avulsa (na fatura, cai no
-      // mesmo caminho que já ignora crédito de cartão — ver abaixo, "sentido
-      // === entrada"); não pode ir para parcelasMap porque o modal já a
-      // excluiu de lá de propósito.
+      // Estorno: marcado à mão no modal de parcelas ("Parcela X de Y" que na
+      // verdade é dinheiro voltando) OU reconhecido pela própria descrição
+      // de um crédito nativo da fatura ("ESTORNO", "REEMBOLSO"...). Numa
+      // fatura isso é um CRÉDITO de verdade — grava como 'cartao' de valor
+      // NEGATIVO (reduz o total), não descarta como o pagamento da fatura.
+      //
+      // O sinal é decidido AQUI, antes do hash de dedup ser calculado: se o
+      // hash refletisse o valor positivo original mas o banco gravasse
+      // negativo, reimportar o mesmo arquivo nunca reconheceria a linha como
+      // já existente (o valor entra na chave de dedup).
       const estornoSet = new Set(estornos);
-      const loteFinal = estornoSet.size
-        ? lote.map(tx => estornoSet.has(tx.descricao) ? { ...tx, tipo: noCartao ? 'cartao' : 'receita', sentido: 'entrada' } : tx)
-        : lote;
+      const loteFinal = lote.map(tx => {
+        const marcado = estornoSet.has(tx.descricao);
+        if (noCartao) {
+          const credito = (tx.sentido || 'saida') === 'entrada';
+          if (marcado || (credito && ehEstornoDescricao(tx.descricao))) {
+            return { ...tx, tipo: 'cartao', sentido: 'entrada', valor: -Math.abs(tx.valor) };
+          }
+          return tx;
+        }
+        return marcado ? { ...tx, tipo: 'receita', sentido: 'entrada' } : tx;
+      });
 
       const noBanco   = contarPorChave(existentes, destinoId, campoAlvo);
       const noArquivo = contarPorChaveNoLote(loteFinal, destinoId);
@@ -286,10 +299,21 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         const hash = hashDedup(tx, destinoId, jaTem + usadas);
 
         // --- FATURA DE CARTÃO ---
-        // Crédito na fatura (pagamento da própria fatura, estorno) não entra:
-        // o pagamento vem do extrato da conta e seria contado duas vezes.
-        if (noCartao) {
-          if ((tx.sentido || 'saida') === 'entrada') { creditosFatura++; continue; }
+        if (noCartao && (tx.sentido || 'saida') === 'entrada') {
+          // loteFinal já decidiu: estorno (marcado no modal ou reconhecido
+          // pela descrição) vira 'cartao' de valor negativo — entra, reduz o
+          // total da fatura. Sem isso, essas linhas eram descartadas junto
+          // com o pagamento da fatura e simplesmente desapareciam.
+          if (Number(tx.valor) < 0) {
+            txsParaSalvar.push({ ...noDestino(tx), hash_dedup: hash });
+            salvos++;
+            continue;
+          }
+          // Pagamento da própria fatura, ou crédito não identificado: não
+          // entra — o pagamento vem do extrato da conta e seria contado
+          // duas vezes; um crédito sem explicação melhor deixar de fora do
+          // que adivinhar errado.
+          creditosFatura++; continue;
         }
 
         // --- TRANSFERÊNCIA ENTRE CONTAS PRÓPRIAS ---

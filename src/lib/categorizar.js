@@ -46,7 +46,12 @@ const PADROES = [
   { cat: 'Educação',    tipo: 'despesa', re: /\b(escola|colegio|faculdade|universidade|curso|udemy|alura|coursera|kumon|wizard|cna|fisk|livraria)\b/ },
   { cat: 'Lazer',       tipo: 'despesa', re: /\b(netflix|spotify|disney|hbo|globoplay|deezer|cinema|cinemark|steam|playstation|xbox|nintendo|ingresso|bar |pub|balada|viagem|hotel|airbnb|booking|latam|gol |azul )\b/ },
   { cat: 'Roupas',      tipo: 'despesa', re: /\b(renner|riachuelo|c&a|zara|hering|centauro|netshoes|nike|adidas|calcados|shoes|moda)\b/ },
-  { cat: 'Serviços',    tipo: 'despesa', re: /\b(vivo|claro|tim|oi fixo|google|apple|microsoft|adobe|icloud|openai|anthropic|chatgpt|amazon prime|contabilidade|cartorio|correios)\b/ },
+  // Valor fixo mensal (streaming já cai em Lazer, acima) — telecom e
+  // software por assinatura. "Serviços" nunca existiu na base do usuário
+  // ("Assinaturas" existe): nenhum destes nomes nunca tinha caído em
+  // categoria nenhuma.
+  { cat: 'Assinaturas', tipo: 'despesa', re: /\b(vivo|claro|tim|oi fixo|google|apple|microsoft|adobe|icloud|openai|anthropic|chatgpt|amazon prime)\b/ },
+  { cat: 'Outros Gastos', tipo: 'despesa', re: /\b(contabilidade|cartorio|correios)\b/ },
   { cat: 'Salário',     tipo: 'receita', re: /\b(salario|folha de pagamento|proventos|remuneracao|pro labore|prolabore|adiantamento salarial|decimo terceiro)\b/ },
   { cat: 'Investimentos', tipo: 'receita', re: /\b(rendimento|dividendo|jcp|juros|cdb|tesouro|aplicacao|resgate|poupanca)\b/ },
   { cat: 'Freelance',   tipo: 'receita', re: /\b(freelance|freela|prestacao de servico|nota fiscal|honorario)\b/ },
@@ -117,8 +122,8 @@ const DE_PARA_BANCO = {
   supermercado: 'Alimentação', alimentacao: 'Alimentação', restaurante: 'Alimentação', bar: 'Alimentação',
   combustivel: 'Transporte', transporte: 'Transporte', automotivo: 'Transporte', viagem: 'Lazer',
   saude: 'Saúde', farmacia: 'Saúde', educacao: 'Educação', lazer: 'Lazer', entretenimento: 'Lazer',
-  vestuario: 'Roupas', compras: 'Roupas', casa: 'Moradia', moradia: 'Moradia', servicos: 'Serviços',
-  telefone: 'Serviços', assinatura: 'Serviços', eletronicos: 'Serviços',
+  vestuario: 'Roupas', compras: 'Roupas', casa: 'Moradia', moradia: 'Moradia', servicos: 'Outros Gastos',
+  telefone: 'Assinaturas', assinatura: 'Assinaturas', eletronicos: 'Outros Gastos',
 };
 
 export function sugerirCategoria(tx, indice, cats) {

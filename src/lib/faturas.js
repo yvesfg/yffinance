@@ -106,6 +106,18 @@ export function ehPagamentoFatura(descricao) {
   return RE_PAGAMENTO_FATURA.test(semAcento(String(descricao || '')).toLowerCase());
 }
 
+// Estorno/reembolso de compra: um crédito na fatura que NÃO é o pagamento
+// (esse já é reconhecido acima). Sem isso, todo crédito que chegasse na
+// fatura e não fosse pagamento — inclusive um estorno de verdade, com a
+// palavra "estorno" na descrição — caía no mesmo descarte genérico
+// ("creditosFatura++") e nunca virava lançamento nenhum.
+// O texto testado já passou por semAcento(), então o padrão fica todo em ASCII.
+const RE_ESTORNO = /estorno|reembolso|devolucao|cancelamento|chargeback|refund|credito.{0,15}(compra|estorno)/i;
+
+export function ehEstornoDescricao(descricao) {
+  return RE_ESTORNO.test(semAcento(String(descricao || '')).toLowerCase());
+}
+
 /**
  * Entre as faturas em aberto de um cartão, qual esta transação de saída está
  * quitando. Duas tentativas, nesta ordem:
