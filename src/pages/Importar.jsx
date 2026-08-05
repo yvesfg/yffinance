@@ -39,6 +39,14 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
   const [cartaoId, setCartaoId]   = useState('');
   const [banco, setBanco]         = useState('inter');
   const [lendoIA, setLendoIA]     = useState(null);      // { arquivo, feito, total }
+  const [lendoSegundos, setLendoSegundos] = useState(0);   // relógio visível — a leitura por IA pode chegar perto de 1min por página, e sem contador aquilo parece travado
+
+  useEffect(() => {
+    if (!lendoIA) { setLendoSegundos(0); return; }
+    const t0 = Date.now();
+    const id = setInterval(() => setLendoSegundos(Math.floor((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [lendoIA?.arquivo, lendoIA?.feito]);
   const [arquivos, setArquivos]   = useState([]);   // nomes dos arquivos carregados
   const [txsParsed, setTxsParsed] = useState([]);   // todas as txs (de todos os arquivos)
   const [preview, setPreview]     = useState([]);    // primeiras 10 para exibição
@@ -99,39 +107,56 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
   const handleFile = async e => {
     const files = [...e.target.files]; if (!files.length) return;
     setResultado(null);
+    let todas = [];
+    const nomes = [];
+    const falhas = [];   // arquivos/páginas que não leram — não pode derrubar o resto
     try {
-      let todas = [];
-      const nomes = [];
       for (const f of files) {
-        let txs = [];
-        if (ehTexto(f)) {
-          const txt = await lerArquivo(f);
-          const result = f.name.toLowerCase().endsWith('.ofx') ? parseOFX(txt) : parseCSV(txt, { fatura: noCartao });
-          txs = Array.isArray(result) ? result : (result?.txs || []);
-        } else {
-          // Extrato/fatura em PDF ou imagem: uma chamada de IA por página
-          setLendoIA({ arquivo: f.name, feito: 0, total: 0 });
-          const out = await lerDocumento(f, {
-            onProgresso: (feito, total) => setLendoIA({ arquivo: f.name, feito, total }),
-          });
-          txs = out.txs;
-          if (out.paginasIgnoradas > 0) {
-            onToast(`${f.name}: só as primeiras ${out.paginas} páginas foram lidas`, 'error');
+        // Cada arquivo é isolado: uma leitura por IA pode levar quase um
+        // minuto e, no fim, ainda falhar (o provedor sobrecarregado). Antes,
+        // isso jogava fora TUDO o que já tinha sido lido dos arquivos
+        // anteriores no mesmo lote — quem subia 5 meses perdia os 5 se o
+        // último desse erro.
+        try {
+          let txs = [];
+          if (ehTexto(f)) {
+            const txt = await lerArquivo(f);
+            const result = f.name.toLowerCase().endsWith('.ofx') ? parseOFX(txt) : parseCSV(txt, { fatura: noCartao });
+            txs = Array.isArray(result) ? result : (result?.txs || []);
+          } else {
+            // Extrato/fatura em PDF ou imagem: uma chamada de IA por página.
+            // Pode legitimamente levar perto de um minuto por página — o
+            // servidor tenta um provedor, cai pro seguinte, só desiste no limite.
+            setLendoIA({ arquivo: f.name, feito: 0, total: 0 });
+            const out = await lerDocumento(f, {
+              onProgresso: (feito, total) => setLendoIA({ arquivo: f.name, feito, total }),
+            });
+            txs = out.txs;
+            if (out.paginasIgnoradas > 0) {
+              onToast(`${f.name}: só as primeiras ${out.paginas} páginas foram lidas`, 'error');
+            }
+            if (out.paginasComErro?.length) {
+              falhas.push(`${f.name}: página${out.paginasComErro.length > 1 ? 's' : ''} ${out.paginasComErro.map(p => p.pagina).join(', ')} não leu`);
+            }
           }
+          nomes.push({ nome: f.name, qtd: txs.length, ia: !ehTexto(f) });
+          // Marca a origem: o dedup precisa saber o que se repete DENTRO de um
+          // arquivo (legítimo) e o que se repete ENTRE arquivos (sobreposição).
+          todas = todas.concat(txs.map(t => ({ ...t, _arquivo: f.name })));
+        } catch (err) {
+          falhas.push(`${f.name}: ${err?.message || 'erro ao ler'}`);
         }
-        nomes.push({ nome: f.name, qtd: txs.length, ia: !ehTexto(f) });
-        // Marca a origem: o dedup precisa saber o que se repete DENTRO de um
-        // arquivo (legítimo) e o que se repete ENTRE arquivos (sobreposição).
-        todas = todas.concat(txs.map(t => ({ ...t, _arquivo: f.name })));
       }
-      if (!todas.length) { onToast('Nenhuma transação encontrada nos arquivos', 'error'); return; }
+      if (!todas.length) {
+        onToast(falhas.length ? falhas.join(' · ') : 'Nenhuma transação encontrada nos arquivos', 'error');
+        return;
+      }
       // Ordena por data para visualização coerente entre meses
       todas.sort((a, b) => (a.data || '').localeCompare(b.data || ''));
       setArquivos(nomes);
       setTxsParsed(todas);
       setPreview(todas.slice(0, 10));
-    } catch (err) {
-      onToast(err?.message || 'Erro ao ler arquivo(s). Verifique o formato.', 'error');
+      if (falhas.length) onToast(`Lido com ressalvas — ${falhas.join(' · ')}`, 'error');
     } finally {
       setLendoIA(null);
       if (fileRef.current) fileRef.current.value = ''; // permite re-selecionar os mesmos arquivos
@@ -489,7 +514,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
           <input ref={fileRef} type="file" accept=".csv,.ofx,.txt,.pdf,image/*" multiple style={{ display: 'none' }} onChange={handleFile} />
           <div style={{ fontSize: 28, marginBottom: 8 }}>{lendoIA ? '🤖' : '📂'}</div>
           {lendoIA
-            ? <><div style={{ fontSize: 13, color: T.txt }}>Lendo {lendoIA.arquivo} com IA…</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{lendoIA.total ? `página ${Math.min(lendoIA.feito + 1, lendoIA.total)} de ${lendoIA.total}` : 'preparando páginas'}</div></>
+            ? <><div style={{ fontSize: 13, color: T.txt }}>Lendo {lendoIA.arquivo} com IA… <span style={{ fontFamily: "'JetBrains Mono',monospace", color: T.txt3 }}>{lendoSegundos}s</span></div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{lendoIA.total ? `página ${Math.min(lendoIA.feito + 1, lendoIA.total)} de ${lendoIA.total}` : 'preparando páginas'} · cada página pode levar perto de 1 minuto</div></>
             : arquivos.length
             ? <><div style={{ fontSize: 13, color: T.txt }}>{arquivos.length === 1 ? arquivos[0].nome : `${arquivos.length} arquivos`}</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{txsParsed.length} transações lidas{arquivos.some(a => a.ia) ? ' (via IA)' : ''}{mesesDetectados.length ? ` · ${mesesDetectados.length} ${mesesDetectados.length === 1 ? 'mês' : 'meses'}` : ''}</div></>
             : <><div style={{ fontSize: 13, color: T.txt2 }}>Clique para selecionar (vários de uma vez) ou arraste aqui</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>CSV e OFX são lidos na hora; PDF, foto e print do {noCartao ? 'da fatura' : 'extrato'} são lidos por IA</div></>

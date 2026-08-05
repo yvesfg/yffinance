@@ -116,17 +116,27 @@ export async function lerDocumento(file, { onProgresso } = {}) {
     throw new Error(isPdf ? 'Não foi possível ler o PDF — tente exportar como imagem' : 'Não foi possível processar a imagem');
   }
 
+  // Cada página é uma chamada de IA separada, e uma página densa pode demorar
+  // perto de um minuto (o servidor tenta OpenAI, cai para o Gemini, e só
+  // desiste no limite de tempo). Uma página travada não pode jogar fora o que
+  // as OUTRAS páginas já leram — antes, uma falha em qualquer página perdia o
+  // documento inteiro, inclusive páginas que já tinham sido lidas com sucesso.
   const txs = [];
+  const paginasComErro = [];
   let documento = 'desconhecido', periodo = '', confMin = null;
   for (let i = 0; i < imagens.length; i++) {
     onProgresso?.(i, imagens.length);
-    const out = await chamarGateway(imagens[i]);
-    if (out.documento && out.documento !== 'desconhecido') documento = out.documento;
-    if (out.periodo && !periodo) periodo = out.periodo;
-    if (typeof out.confianca === 'number') confMin = confMin == null ? out.confianca : Math.min(confMin, out.confianca);
-    for (const l of out.lancamentos || []) txs.push(paraTransacao(l));
+    try {
+      const out = await chamarGateway(imagens[i]);
+      if (out.documento && out.documento !== 'desconhecido') documento = out.documento;
+      if (out.periodo && !periodo) periodo = out.periodo;
+      if (typeof out.confianca === 'number') confMin = confMin == null ? out.confianca : Math.min(confMin, out.confianca);
+      for (const l of out.lancamentos || []) txs.push(paraTransacao(l));
+    } catch (e) {
+      paginasComErro.push({ pagina: i + 1, erro: e?.message || String(e) });
+    }
   }
   onProgresso?.(imagens.length, imagens.length);
 
-  return { txs, documento, periodo, confianca: confMin, paginas: imagens.length, paginasIgnoradas };
+  return { txs, documento, periodo, confianca: confMin, paginas: imagens.length, paginasIgnoradas, paginasComErro };
 }
