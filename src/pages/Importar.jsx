@@ -181,18 +181,20 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
       setParcelasDetect(detectadas);
       setModalParcelas(true);
     } else {
-      await executarImportacao([]);
+      await executarImportacao([], []);
     }
   };
 
-  // Etapa 2: chamado após confirmação do modal (ou sem parcelas)
-  const handleConfirmarParcelas = async (parcelasConfirmadas) => {
+  // Etapa 2: chamado após confirmação do modal (ou sem parcelas). `estornos`
+  // são descrições que a detecção achou que eram parcela, mas o usuário disse
+  // que é dinheiro voltando — entram como entrada avulsa, não como dívida.
+  const handleConfirmarParcelas = async (parcelasConfirmadas, estornos) => {
     setModalParcelas(false);
-    await executarImportacao(parcelasConfirmadas);
+    await executarImportacao(parcelasConfirmadas, estornos);
   };
 
   // Etapa 3: importação efetiva com dedup completo
-  const executarImportacao = async (parcelasConfirmadas) => {
+  const executarImportacao = async (parcelasConfirmadas, estornos = []) => {
     setImportando(true);
     try {
       // Buscar transações existentes para dedup (últimos 12 meses + futuros)
@@ -259,11 +261,21 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
             return fatura ? { ...tx, tipo: 'pagamento_fatura', fatura_id: fatura.id } : tx;
           });
 
+      // Estorno marcado no modal de parcelas: "Parcela X de Y" que na
+      // verdade é dinheiro voltando. Vira entrada avulsa (na fatura, cai no
+      // mesmo caminho que já ignora crédito de cartão — ver abaixo, "sentido
+      // === entrada"); não pode ir para parcelasMap porque o modal já a
+      // excluiu de lá de propósito.
+      const estornoSet = new Set(estornos);
+      const loteFinal = estornoSet.size
+        ? lote.map(tx => estornoSet.has(tx.descricao) ? { ...tx, tipo: noCartao ? 'cartao' : 'receita', sentido: 'entrada' } : tx)
+        : lote;
+
       const noBanco   = contarPorChave(existentes, destinoId, campoAlvo);
-      const noArquivo = contarPorChaveNoLote(lote, destinoId);
+      const noArquivo = contarPorChaveNoLote(loteFinal, destinoId);
       const emitidas  = new Map();   // já emitidas nesta execução, por chave
 
-      for (const tx of lote) {
+      for (const tx of loteFinal) {
         const chave  = chaveBase(tx, destinoId);
         const jaTem  = noBanco.get(chave) || 0;
         const cabem  = Math.max(0, (noArquivo.get(chave) || 0) - jaTem);

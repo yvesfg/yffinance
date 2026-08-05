@@ -1,12 +1,18 @@
-// Padrões de parcela encontrados em CSVs de bancos brasileiros
-// Exemplos reais: "AMAZON 02/12", "NETFLIX 3/5", "PARC 2 DE 12", "02 DE 12", "PARCELA 2/12"
+// Padrões de parcela encontrados em CSVs/OFX de bancos brasileiros
+// Exemplos reais: "AMAZON 02/12", "NETFLIX 3/5", "PARC 2 DE 12", "02 DE 12",
+// "PARCELA 2/12", "MERCADOLIVRE*MERCADOLIVRE Parcela 1 de 2"
 const PATTERNS = [
   // "02/12" ou "02-12" no final ou após espaço — mais comum
   { re: /\b0*(\d{1,2})\s*[\/\-]\s*0*(\d{2,3})\b/, strip: true },
-  // "2 DE 12" ou "2 de 12"
-  { re: /\b0*(\d{1,2})\s+de\s+0*(\d{2,3})\b/i, strip: true },
-  // "PARC 02/12" ou "PARCELA 2/12"
-  { re: /parc(?:ela)?\s+0*(\d{1,2})\s*[\/\-]?\s*0*(\d{2,3})/i, strip: true },
+  // "2 DE 12", "Parcela 1 de 2" — o total aqui era exigido com 2-3 dígitos
+  // (\d{2,3}), então qualquer parcelamento de menos de 10x ("1 de 2", "1 de
+  // 6", "1 de 9" — a maioria das compras parceladas reais) passava batido,
+  // sem virar parcela nenhuma. O prefixo "parcela"/"parc" agora é consumido
+  // pelo próprio padrão quando existe, senão sobrava a palavra solta na base
+  // ("MERCADOLIVRE*MERCADOLIVRE Parcela" em vez de só o nome do lugar).
+  { re: /\b(?:parc(?:ela)?\s+)?0*(\d{1,2})\s+de\s+0*(\d{1,3})\b/i, strip: true },
+  // "PARC 02/12" ou "PARCELA 2/12" — mesmo ajuste do total 1-3 dígitos
+  { re: /parc(?:ela)?\s+0*(\d{1,2})\s*[\/\-]?\s*0*(\d{1,3})/i, strip: true },
   // "2X" no contexto de "12 de 24X" — menos comum
   { re: /\b0*(\d{1,2})\s*x\s+0*(\d{2,3})\s*x?\b/i, strip: true },
 ];
