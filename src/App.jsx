@@ -112,9 +112,12 @@ export default function App() {
     setContas(data || []);
   }, [perfil]);
 
+  // 'ambos' são as categorias padrão do sistema, compartilhadas pelos dois
+  // perfis. Igualdade estrita (perfil=eq.) nunca batia com elas — resultado:
+  // toda categoria ficava invisível e nenhum lançamento tinha categoria.
   const loadCats = useCallback(async () => {
     if (!perfil) return;
-    const data = await sb(`cf_categorias?perfil=eq.${perfil}&order=nome.asc`);
+    const data = await sb(`cf_categorias?perfil=in.(${perfil},ambos)&order=nome.asc`);
     setCats(data || []);
   }, [perfil]);
 
@@ -175,6 +178,18 @@ export default function App() {
     const conta = Array.isArray(novo) ? novo[0] : novo;
     showToast(`Conta "${conta?.nome || nome}" criada`);
     return conta;
+  };
+
+  // Criação rápida de categoria a partir do <select> do lançamento (mesmo
+  // padrão do createContaQuick) — fica no perfil atual, não em "ambos": só as
+  // categorias padrão do sistema são compartilhadas entre pessoal e empresa.
+  const ICONE_PADRAO = { despesa: '🏷️', receita: '💰', transferencia: '🔄' };
+  const createCategoriaQuick = async (nome, tipo) => {
+    const nova = await sb('cf_categorias', 'POST', { nome: nome.trim(), tipo, icone: ICONE_PADRAO[tipo] || '🏷️', perfil });
+    await loadCats();
+    const cat = Array.isArray(nova) ? nova[0] : nova;
+    showToast(`Categoria "${cat?.nome || nome}" criada`);
+    return cat;
   };
 
   const deleteConta = async id => {
@@ -274,6 +289,7 @@ export default function App() {
         cats={cats}
         cartoes={cartoes}
         onCreateConta={createContaQuick}
+        onCreateCategoria={createCategoriaQuick}
         editData={editTx}
       />
 

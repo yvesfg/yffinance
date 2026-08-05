@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { T } from '../constants.js';
 import { useModalKeys } from '../lib/useModalKeys.js';
 import ContaSelect from '../components/ContaSelect.jsx';
+import CategoriaSelect from '../components/CategoriaSelect.jsx';
 
 const TIPOS = [
   { v: 'despesa',      l: '↓ Despesa',    c: T.red    },
@@ -21,7 +22,7 @@ function fg(label, children) {
 
 const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '9px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans', sans-serif", fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' };
 
-export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats, onCreateConta, editData }) {
+export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats, onCreateConta, onCreateCategoria, editData }) {
   const [tipo, setTipo]   = useState('despesa');
   const [data, setData]   = useState('');
   const [valor, setValor] = useState('');
@@ -54,7 +55,8 @@ export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats
     }
   }, [open, editData]);
 
-  const catsFilt = cats.filter(c => c.tipo === (tipo === 'cartao' ? 'despesa' : tipo === 'transferencia' ? 'transferencia' : tipo));
+  const tipoCategoria = tipo === 'cartao' ? 'despesa' : tipo === 'transferencia' ? 'transferencia' : tipo;
+  const catsFilt = cats.filter(c => c.tipo === tipoCategoria);
 
   const handleSave = async () => {
     if (!data || !valor || !desc.trim() || busy) return;
@@ -102,7 +104,7 @@ export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats
           {tipo !== 'cartao' && fg('Conta', <ContaSelect value={contaId} onChange={setContaId} contas={contas} onCreate={onCreateConta} />)}
           {tipo === 'cartao' && fg('Cartão', <select style={inp} value={cartaoId} onChange={e => setCartaoId(e.target.value)}>{cartoes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>)}
           {tipo === 'transferencia' && fg('Conta Destino', <ContaSelect value={destId} onChange={setDestId} contas={contas} onCreate={onCreateConta} allowEmpty emptyLabel="Selecionar conta" />)}
-          {fg('Categoria', <select style={inp} value={catId} onChange={e => setCatId(e.target.value)}><option value="">Sem categoria</option>{catsFilt.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}</select>)}
+          {fg('Categoria', <CategoriaSelect value={catId} onChange={setCatId} cats={catsFilt} tipo={tipoCategoria} onCreate={onCreateCategoria} />)}
           <div style={{ gridColumn:'1/-1' }}>{fg('Descrição', <input type="text" style={inp} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ex: Almoço, Salário..." />)}</div>
           {fg('Status', <select style={inp} value={status} onChange={e => setStatus(e.target.value)}><option value="efetivado">Efetivado</option><option value="pendente">Pendente</option></select>)}
           <div style={{ gridColumn:'1/-1' }}>{fg('Observação', <input type="text" style={inp} value={obs} onChange={e => setObs(e.target.value)} placeholder="Opcional" />)}</div>
