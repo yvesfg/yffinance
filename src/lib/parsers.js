@@ -40,8 +40,16 @@ export function detectSentido(desc, valorOrig) {
   return 'saida';
 }
 
+/**
+ * PIX/TED é MEIO de pagamento, não significado: "Pix recebido da Rodorrica" é
+ * receita de cliente e "Pix enviado para o fornecedor" é despesa. Só vira
+ * transferência quando a outra perna aparece, e isso quem decide é a
+ * importação (ver acharContraparteSaida em dedup.js) — aqui vale a direção.
+ *
+ * Classificar todo PIX como transferência tirava o dinheiro dos dois totais do
+ * Dashboard: num extrato real de 20 linhas, 18 sumiam de Entradas e Saídas.
+ */
 export function detectTipo(desc, valorOrig) {
-  if (ehTransferencia(desc)) return 'transferencia';
   return detectSentido(desc, valorOrig) === 'entrada' ? 'receita' : 'despesa';
 }
 
@@ -55,7 +63,7 @@ export function parseOFX(content) {
     const vOrig = parseFloat(get(b, 'TRNAMT').replace(',', '.'));
     const valor = Math.abs(vOrig);
     const descricao = get(b, 'MEMO') || get(b, 'NAME') || 'Transação';
-    return { data, valor, tipo: detectTipo(descricao, vOrig), sentido: detectSentido(descricao, vOrig), descricao, _sel: true };
+    return { data, valor, tipo: detectTipo(descricao, vOrig), sentido: detectSentido(descricao, vOrig), transf: ehTransferencia(descricao), descricao, _sel: true };
   }).filter(t => t.data && t.valor);
   return { txs };
 }
@@ -96,10 +104,8 @@ export function parseCSV(content) {
     const sentido = iTipo >= 0
       ? (cols[iTipo].toLowerCase().includes('c') ? 'entrada' : 'saida')
       : detectSentido(descricao, vRaw);
-    const tipo = ehTransferencia(descricao)
-      ? 'transferencia'
-      : (sentido === 'entrada' ? 'receita' : 'despesa');
-    return { data, valor, tipo, sentido, descricao, _sel: true };
+    const tipo = sentido === 'entrada' ? 'receita' : 'despesa';
+    return { data, valor, tipo, sentido, transf: ehTransferencia(descricao), descricao, _sel: true };
   }).filter(Boolean);
 
   if (!txs.length) return { error: 'Nenhuma transação válida' };

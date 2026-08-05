@@ -1,3 +1,5 @@
+import { ehTransferencia } from './parsers.js';
+
 // Uma transferência é UMA operação que aparece em DOIS extratos: sai da conta
 // de origem e entra na de destino. No banco ela é uma linha só —
 // conta_id = origem, conta_destino_id = destino. Estas funções existem para
@@ -102,16 +104,24 @@ export function acharOperacaoCompleta(lista, tx, contaId, sentido, janela = JANE
 }
 
 /**
- * Procura a perna de saída órfã que corresponde a esta entrada: mesmo valor,
- * data próxima, outra conta e ainda sem destino definido. Achou = é a outra
- * metade da mesma operação, então basta preencher o conta_destino_id.
+ * Procura, para uma ENTRADA que chegou por PIX/TED, a saída correspondente já
+ * lançada em OUTRA conta. Achou = as duas linhas são a mesma operação, e a
+ * saída vira a transferência (recebendo conta_destino_id).
+ *
+ * A saída está gravada como DESPESA, não como transferência: no extrato, PIX é
+ * meio de pagamento, e só a existência das duas pernas prova que o dinheiro
+ * ficou na casa. Por isso os critérios são apertados — mesmo valor, data
+ * próxima, outra conta, ainda sem destino, e as DUAS descrições com cara de
+ * transferência. ('transferencia' entra na busca por causa das linhas
+ * gravadas antes desta regra.)
  */
-export function acharPernaSaida(lista, tx, contaId, janela = JANELA_DIAS) {
+export function acharContraparteSaida(lista, tx, contaId, janela = JANELA_DIAS) {
   return lista.find(e =>
-    e.tipo === 'transferencia' &&
     !e._consumida &&
     !e.conta_destino_id &&
     e.conta_id && e.conta_id !== contaId &&
+    (e.tipo === 'despesa' || e.tipo === 'transferencia') &&
+    ehTransferencia(e.descricao) &&
     mesmoValor(e.valor, tx.valor) &&
     diffDias(e.data, tx.data) <= janela
   );

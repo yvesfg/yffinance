@@ -96,10 +96,8 @@ function paraTransacao(l) {
   const descricao = l.parcela && !detectParcela(l.descricao)
     ? `${l.descricao} ${l.parcela}`
     : l.descricao;
-  const tipo = ehTransferencia(descricao)
-    ? 'transferencia'
-    : (l.sentido === 'entrada' ? 'receita' : 'despesa');
-  return { data: l.data, valor: Number(l.valor), tipo, sentido: l.sentido, descricao, _sel: true, _ia: true };
+  const tipo = l.sentido === 'entrada' ? 'receita' : 'despesa';
+  return { data: l.data, valor: Number(l.valor), tipo, sentido: l.sentido, transf: ehTransferencia(descricao), descricao, _sel: true, _ia: true };
 }
 
 /**

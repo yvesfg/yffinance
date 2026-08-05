@@ -3,13 +3,12 @@ import { useIsMobile } from '../lib/useMedia.js';
 import { T, BANCOS, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { parseOFX, parseCSV } from '../lib/parsers.js';
-import { acharOperacaoCompleta, acharPernaSaida, chaveBase, contarPorChave, contarPorChaveNoLote, hashDedup } from '../lib/dedup.js';
+import { acharOperacaoCompleta, acharContraparteSaida, chaveBase, contarPorChave, contarPorChaveNoLote, hashDedup } from '../lib/dedup.js';
 import { detectParcela, gerarParcelas, jaExisteParcela, uuid } from '../lib/parcelas.js';
 import { lerDocumento } from '../lib/aiIntake.js';
 import { indicePorHistorico, categorizarLote, sugerirCategoria } from '../lib/categorizar.js';
 import { sb } from '../supabase.js';
 import ModalParcelas from '../modals/ModalParcelas.jsx';
-import ModalVincular from '../modals/ModalVincular.jsx';
 import ContaSelect from '../components/ContaSelect.jsx';
 
 // Lê um arquivo como texto (Promise)
@@ -46,11 +45,6 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
   const [resultado, setResultado]   = useState(null);
   const [modalParcelas, setModalParcelas] = useState(false);
   const [parcelasDetect, setParcelasDetect] = useState([]);
-  // Entradas de transferência que não acharam a perna de saída correspondente:
-  // o usuário identifica uma a uma no fim da importação.
-  const [pendVinc, setPendVinc]   = useState([]);
-  const [vincIdx, setVincIdx]     = useState(0);
-  const [modalVinc, setModalVinc] = useState(false);
   const [historico, setHistorico] = useState([]);   // importações anteriores deste destino
   const [indiceCat, setIndiceCat] = useState(() => new Map());   // núcleo da descrição → categoria
   const fileRef = useRef();
@@ -199,7 +193,6 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
 
       const txsParaSalvar = [];
       const patches   = [];   // vínculos em linhas que já estão no banco
-      const pendentes = [];   // entradas sem perna de saída → ModalVincular
 
       // --- DEDUP POR CONTAGEM ---
       // Quantas linhas de cada chave o banco já tem, e quantas o arquivo traz.
@@ -230,40 +223,30 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
           if ((tx.sentido || 'saida') === 'entrada') { creditosFatura++; continue; }
         }
 
-        // --- TRANSFERÊNCIAS: uma operação, dois extratos, UMA linha ---
-        // (fatura de cartão não tem transferência entre contas)
-        if (!noCartao && tx.tipo === 'transferencia') {
-          const sentido = tx.sentido || 'saida';
-
-          // Esta perna já está representada por uma operação completa
-          // (reimportação, ou o outro lado já foi vinculado antes)?
-          const completa = acharOperacaoCompleta(existentes, tx, contaId, sentido);
+        // --- TRANSFERÊNCIA ENTRE CONTAS PRÓPRIAS ---
+        // O lançamento entra como receita ou despesa (é o que ele é, do ponto
+        // de vista desta conta). Só quando a OUTRA perna aparece — ou seja,
+        // quando você importa o extrato do outro banco — as duas viram uma
+        // transferência só. Enquanto isso, o dinheiro conta nos totais.
+        if (!noCartao && tx.transf && (tx.sentido || 'saida') === 'entrada') {
+          // Já pareada antes? (reimportação do extrato de destino)
+          const completa = acharOperacaoCompleta(existentes, tx, contaId, 'entrada');
           if (completa) { completa._consumida = true; duplic++; continue; }
 
-          if (sentido === 'entrada') {
-            // Procura a saída órfã correspondente (o lote em andamento também
-            // está em `existentes`, ver push mais abaixo)
-            const alvo = acharPernaSaida(existentes, tx, contaId);
-            if (alvo) {
-              // Marca no objeto em memória também, para que uma segunda entrada
-              // de mesmo valor no lote não reivindique a mesma perna.
-              alvo.conta_destino_id = contaId;
-              if (alvo.id) patches.push({ id: alvo.id, conta_destino_id: contaId });
-              vinculadas++;
-              continue;
+          const contraparte = acharContraparteSaida(existentes, tx, contaId);
+          if (contraparte) {
+            // A saída da outra conta vira a transferência; esta entrada não
+            // gera linha nova, senão o valor apareceria duas vezes.
+            contraparte.tipo = 'transferencia';
+            contraparte.conta_destino_id = contaId;
+            contraparte._consumida = true;
+            if (contraparte.id) {
+              patches.push({ id: contraparte.id, dados: { tipo: 'transferencia', conta_destino_id: contaId, categoria_id: null } });
             }
-            // Sem par: não dá para inserir como transferência (debitaria esta
-            // conta em vez de creditar). Vai para identificação manual.
-            pendentes.push(tx);
+            vinculadas++;
             continue;
           }
-
-          // Saída: entra sem destino e fica aguardando a perna de entrada
-          const saida = { ...tx, conta_id: contaId, conta_destino_id: null, perfil, status: 'pago', hash_dedup: hash };
-          txsParaSalvar.push(saida);
-          existentes.push(saida);   // visível para as entradas seguintes do lote
-          salvos++;
-          continue;
+          // Sem par: segue como receita normal, no fluxo abaixo
         }
 
         // --- PARCELAS ---
@@ -335,10 +318,9 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
       const bloqueadas = txsParaSalvar.length - inseridas;
       if (bloqueadas > 0) { duplic += bloqueadas; salvos = Math.max(0, salvos - bloqueadas); }
 
-      // Vincular as pernas de entrada que acharam a saída correspondente:
-      // completa a operação existente em vez de criar uma segunda linha.
+      // Converte em transferência as saídas que acharam a entrada correspondente
       for (const p of patches) {
-        await sb('cf_transacoes', 'PATCH', { conta_destino_id: p.conta_destino_id }, `id=eq.${p.id}`);
+        await sb('cf_transacoes', 'PATCH', p.dados, `id=eq.${p.id}`);
       }
 
       // Registra o período importado, para avisar numa próxima vez.
@@ -361,61 +343,18 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         carregarHistorico();
       }
 
-      setResultado({ salvos, duplic, parcelasNovas, vinculadas, creditosFatura, categorizados: cat.categorizados, pendentes: pendentes.length });
+      setResultado({ salvos, duplic, parcelasNovas, vinculadas, creditosFatura, categorizados: cat.categorizados });
       onToast(
         `${salvos} importados${parcelasNovas ? `, ${parcelasNovas} parcelas futuras criadas` : ''}${vinculadas ? `, ${vinculadas} transferências vinculadas` : ''}, ${duplic} duplicatas ignoradas`,
         'success'
       );
 
-      // Entradas sem par: identificar uma a uma antes de encerrar
-      if (pendentes.length) {
-        setPendVinc(pendentes); setVincIdx(0); setModalVinc(true);
-      } else {
-        onDone?.();
-      }
+      onDone?.();
     } catch (err) {
       onToast('Erro na importação: ' + err.message, 'error');
     } finally {
       setImportando(false);
     }
-  };
-
-  // Encerra a fila de identificação manual
-  const fecharVinculo = () => {
-    setModalVinc(false);
-    setResultado(r => (r ? { ...r, pendentes: 0 } : r));
-    onDone?.();
-  };
-
-  const avancarVinculo = () => {
-    if (vincIdx + 1 < pendVinc.length) setVincIdx(v => v + 1);
-    else fecharVinculo();
-  };
-
-  // Entrada de transferência sem par: o usuário diz de onde veio (ou que não
-  // era transferência). Só aqui a linha é criada — com origem e destino certos.
-  const confirmarVinculo = async dados => {
-    const tx = pendVinc[vincIdx];
-    if (dados.tipo === 'transferencia' && !dados.conta_origem_id) {
-      onToast('Selecione a conta de origem (ou marque como receita)', 'error');
-      return;
-    }
-    try {
-      const base = {
-        data: tx.data, valor: tx.valor,
-        descricao: dados.descricao || tx.descricao,
-        categoria_id: dados.categoria_id || null,
-        perfil, status: 'pago', origem: 'importacao',
-      };
-      await sb('cf_transacoes', 'POST', dados.tipo === 'transferencia'
-        ? { ...base, tipo: 'transferencia', conta_id: dados.conta_origem_id, conta_destino_id: contaId }
-        : { ...base, tipo: dados.tipo, conta_id: contaId, conta_destino_id: null });
-      setResultado(r => (r ? { ...r, salvos: r.salvos + 1 } : r));
-    } catch (err) {
-      onToast('Erro ao vincular: ' + err.message, 'error');
-      return;
-    }
-    avancarVinculo();
   };
 
   return (
@@ -561,7 +500,6 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
             <div style={{ background: T.greenGlow, color: T.green, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>✓ {resultado.salvos} importados</div>
             {resultado.parcelasNovas > 0 && <div style={{ background: T.purpleGlow, color: T.purple, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>📅 {resultado.parcelasNovas} parcelas futuras criadas</div>}
             {resultado.vinculadas > 0 && <div style={{ background: T.blueGlow, color: T.blue, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>⇄ {resultado.vinculadas} transferências vinculadas</div>}
-            {resultado.pendentes > 0 && <div style={{ background: T.blueGlow, color: T.blue, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>⇄ {resultado.pendentes} a identificar</div>}
             {resultado.categorizados > 0 && <div style={{ background: T.goldGlow, color: T.gold, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>🏷 {resultado.categorizados} categorizados automaticamente</div>}
             {resultado.creditosFatura > 0 && <div style={{ background: T.bg3, color: T.txt2, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13 }}>↩ {resultado.creditosFatura} créditos da fatura ignorados (pagamento/estorno)</div>}
             {resultado.duplic > 0 && <div style={{ background: T.bg3, color: T.txt2, borderRadius: T.radius2, padding: '8px 14px', fontSize: 13 }}>⊘ {resultado.duplic} duplicatas ignoradas</div>}
@@ -577,19 +515,6 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         onClose={() => setModalParcelas(false)}
       />
 
-      {/* Entradas de transferência sem perna de saída correspondente */}
-      <ModalVincular
-        open={modalVinc}
-        tx={pendVinc[vincIdx]}
-        idx={vincIdx}
-        total={pendVinc.length}
-        contas={contas.filter(c => c.id !== contaId)}
-        cats={cats}
-        sentido="entrada"
-        onConfirm={confirmarVinculo}
-        onSkip={avancarVinculo}
-        onClose={fecharVinculo}
-      />
     </div>
   );
 }
