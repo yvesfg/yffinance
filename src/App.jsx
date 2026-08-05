@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { T } from './constants.js';
 import { sb } from './supabase.js';
+import { periodoMes, mesDeHoje, mesDoPeriodo } from './lib/periodo.js';
 import { supabase } from './lib/supabaseClient.js';
 
 import Login from './pages/Login.jsx';
@@ -11,6 +12,8 @@ import Lancamentos from './pages/Lancamentos.jsx';
 import Contas from './pages/Contas.jsx';
 import Cartoes from './pages/Cartoes.jsx';
 import Importar from './pages/Importar.jsx';
+import ContaDetalhe from './pages/ContaDetalhe.jsx';
+import FaturaDetalhe from './pages/FaturaDetalhe.jsx';
 
 import Sidebar from './components/Sidebar.jsx';
 import TopBar from './components/TopBar.jsx';
@@ -20,13 +23,14 @@ import ModalLanc from './modals/ModalLanc.jsx';
 import ModalConta from './modals/ModalConta.jsx';
 import ModalCartao from './modals/ModalCartao.jsx';
 
-const hoje = () => new Date().toISOString().slice(0, 7);
 
 export default function App() {
   const [session, setSession]     = useState(undefined); // undefined = carregando
   const [perfil, setPerfil]       = useState(() => localStorage.getItem('yf_perfil') || null);
   const [pagina, setPagina]       = useState('dashboard');
-  const [mesAtual, setMesAtual]   = useState(hoje);
+  const [periodo, setPeriodo]     = useState(() => periodoMes(mesDeHoje()));
+  // Conta ou cartão aberto no detalhamento (null = lista normal)
+  const [detalhe, setDetalhe]     = useState(null);
   const [sideOpen, setSideOpen]   = useState(false);
 
   const [txs, setTxs]         = useState([]);
@@ -82,14 +86,12 @@ export default function App() {
 
   const showToast = (msg, type = 'success') => setToast({ msg, type });
 
+  // Carrega pelo PERÍODO escolhido, não mais só pelo mês corrente
   const loadTxs = useCallback(async () => {
     if (!perfil) return;
-    const [ano, mes] = mesAtual.split('-');
-    const inicio = `${ano}-${mes}-01`;
-    const fim    = new Date(Number(ano), Number(mes), 0).toISOString().slice(0, 10);
-    const data = await sb(`cf_transacoes?perfil=eq.${perfil}&data=gte.${inicio}&data=lte.${fim}&order=data.desc,id.desc`);
+    const data = await sb(`cf_transacoes?perfil=eq.${perfil}&data=gte.${periodo.inicio}&data=lte.${periodo.fim}&order=data.desc,id.desc`);
     setTxs(data || []);
-  }, [perfil, mesAtual]);
+  }, [perfil, periodo.inicio, periodo.fim]);
 
   const loadContas = useCallback(async () => {
     if (!perfil) return;
@@ -111,7 +113,7 @@ export default function App() {
 
   useEffect(() => {
     if (perfil) { loadTxs(); loadContas(); loadCats(); loadCartoes(); }
-  }, [perfil, mesAtual]);
+  }, [perfil, periodo.inicio, periodo.fim]);
 
   const selectPerfil = p => { setPerfil(p); localStorage.setItem('yf_perfil', p); };
 
@@ -202,15 +204,27 @@ export default function App() {
   // Autenticado mas sem perfil → splash de seleção
   if (!perfil) return <Splash onSelect={selectPerfil} />;
 
-  const pageProps = { txs, contas, cats, cartoes, mesAtual, setMesAtual, loadTxs, perfil };
+  const pageProps = { txs, contas, cats, cartoes, periodo, setPeriodo, mesAtual: mesDoPeriodo(periodo), loadTxs, perfil };
 
   const renderPage = () => {
+    // Detalhamento tem precedência: veio de um clique na conta ou no cartão
+    if (detalhe?.tipo === 'conta') {
+      const conta = contas.find(c => c.id === detalhe.id);
+      if (conta) return <ContaDetalhe {...pageProps} conta={conta} onVoltar={() => setDetalhe(null)}
+        onEdit={openEditTx} onDelete={deleteTx} onEditConta={c => { setEditConta(c); setModalConta(true); }} />;
+    }
+    if (detalhe?.tipo === 'cartao') {
+      const cartao = cartoes.find(c => c.id === detalhe.id);
+      if (cartao) return <FaturaDetalhe {...pageProps} cartao={cartao} onVoltar={() => setDetalhe(null)}
+        onEdit={openEditTx} onDelete={deleteTx} onEditCartao={c => { setEditCartao(c); setModalCartao(true); }} />;
+    }
+
     switch (pagina) {
-      case 'dashboard':   return <Dashboard {...pageProps} />;
+      case 'dashboard':   return <Dashboard {...pageProps} onAbrirConta={id => setDetalhe({ tipo: 'conta', id })} />;
       case 'extrato':     return <Extrato {...pageProps} onEdit={openEditTx} onDelete={deleteTx} />;
       case 'lancamentos': return <Lancamentos {...pageProps} onNew={openNewTx} onEdit={openEditTx} onDelete={deleteTx} />;
-      case 'contas':      return <Contas contas={contas} txs={txs} onNew={() => { setEditConta(null); setModalConta(true); }} onEdit={c => { setEditConta(c); setModalConta(true); }} onDelete={deleteConta} />;
-      case 'cartoes':     return <Cartoes cartoes={cartoes} txs={txs} contas={contas} onNew={() => { setEditCartao(null); setModalCartao(true); }} onEdit={c => { setEditCartao(c); setModalCartao(true); }} onDelete={deleteCartao} />;
+      case 'contas':      return <Contas contas={contas} txs={txs} periodo={periodo} onAbrir={c => setDetalhe({ tipo: 'conta', id: c.id })} onNew={() => { setEditConta(null); setModalConta(true); }} onEdit={c => { setEditConta(c); setModalConta(true); }} onDelete={deleteConta} />;
+      case 'cartoes':     return <Cartoes cartoes={cartoes} txs={txs} contas={contas} periodo={periodo} onAbrir={c => setDetalhe({ tipo: 'cartao', id: c.id })} onNew={() => { setEditCartao(null); setModalCartao(true); }} onEdit={c => { setEditCartao(c); setModalCartao(true); }} onDelete={deleteCartao} />;
       case 'importar':    return <Importar contas={contas} cartoes={cartoes} cats={cats} perfil={perfil} onToast={showToast} onCreateConta={createContaQuick} onDone={() => { loadTxs(); setPagina('extrato'); }} />;
       default:            return <Dashboard {...pageProps} />;
     }
@@ -225,7 +239,7 @@ export default function App() {
     <div style={{ display:'flex', height:'100dvh', overflow:'hidden', background:T.bg, fontFamily:"'DM Sans',sans-serif" }}>
       <Sidebar
         pagina={pagina}
-        setPagina={p => { setPagina(p); setSideOpen(false); }}
+        setPagina={p => { setPagina(p); setDetalhe(null); setSideOpen(false); }}
         perfil={perfil}
         setPerfil={p => { setPerfil(p); localStorage.setItem('yf_perfil', p); setTxs([]); }}
         mobileOpen={sideOpen}

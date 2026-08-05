@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useIsMobile } from '../lib/useMedia.js';
+import PeriodoSelect from '../components/PeriodoSelect.jsx';
 import { T, BANCOS } from '../constants.js';
 import { fmt, fmtD, exportCSV } from '../lib/formatters.js';
 
 const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box' };
 
-export default function Extrato({ txs, contas, cats, cartoes, mesAtual, setMesAtual, loadTxs, onEdit, onDelete }) {
+export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriodo, onEdit, onDelete }) {
   const isMobile = useIsMobile();
   const [filtTipo, setFiltTipo] = useState('todos');
   const [filtConta, setFiltConta] = useState('');
@@ -13,14 +14,6 @@ export default function Extrato({ txs, contas, cats, cartoes, mesAtual, setMesAt
   const [busca, setBusca] = useState('');
   const [ordenacao, setOrdenacao] = useState('data_desc');
 
-  const [ano, mes] = mesAtual.split('-').map(Number);
-  const mudarMes = d => {
-    const dt = new Date(ano, mes - 1 + d, 1);
-    setMesAtual(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`);
-    loadTxs();
-  };
-
-  const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   const filtradas = useMemo(() => {
     let lista = [...txs];
@@ -63,11 +56,7 @@ export default function Extrato({ txs, contas, cats, cartoes, mesAtual, setMesAt
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
         <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Extrato</h2>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <button onClick={() => mudarMes(-1)} style={{ ...inp, width:28, height:28, padding:0, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>‹</button>
-          <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12, minWidth:110, textAlign:'center', color:T.txt }}>{MESES[mes-1]} {ano}</span>
-          <button onClick={() => mudarMes(1)} style={{ ...inp, width:28, height:28, padding:0, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>›</button>
-        </div>
+        <PeriodoSelect value={periodo} onChange={setPeriodo} />
       </div>
 
       {/* Resumo */}

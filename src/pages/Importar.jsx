@@ -4,7 +4,7 @@ import { T, BANCOS, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { parseOFX, parseCSV } from '../lib/parsers.js';
 import { acharOperacaoCompleta, acharContraparteSaida, chaveBase, contarPorChave, contarPorChaveNoLote, hashDedup } from '../lib/dedup.js';
-import { detectParcela, gerarParcelas, jaExisteParcela, uuid } from '../lib/parcelas.js';
+import { detectParcela, parcelaDaTx, gerarParcelas, jaExisteParcela, uuid } from '../lib/parcelas.js';
 import { lerDocumento } from '../lib/aiIntake.js';
 import { indicePorHistorico, categorizarLote, sugerirCategoria } from '../lib/categorizar.js';
 import { sb } from '../supabase.js';
@@ -105,7 +105,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         let txs = [];
         if (ehTexto(f)) {
           const txt = await lerArquivo(f);
-          const result = f.name.toLowerCase().endsWith('.ofx') ? parseOFX(txt) : parseCSV(txt);
+          const result = f.name.toLowerCase().endsWith('.ofx') ? parseOFX(txt) : parseCSV(txt, { fatura: noCartao });
           txs = Array.isArray(result) ? result : (result?.txs || []);
         } else {
           // Extrato/fatura em PDF ou imagem: uma chamada de IA por página
@@ -147,7 +147,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
     const detectadas = [];
     for (const tx of txsParsed) {
       if (tx.tipo === 'receita' || tx.tipo === 'transferencia') continue;
-      const p = detectParcela(tx.descricao);
+      const p = parcelaDaTx(tx);
       if (p) detectadas.push({ tx, base: p.base, atual: p.atual, total: p.total });
     }
 
@@ -447,7 +447,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
             </div>
             <div style={{ background: T.bg3, borderRadius: T.radius2, overflow: 'hidden', border: `1px solid ${T.border}` }}>
               {preview.map((t, i) => {
-                const parc = (t.tipo !== 'receita' && t.tipo !== 'transferencia') ? detectParcela(t.descricao) : null;
+                const parc = (t.tipo !== 'receita' && t.tipo !== 'transferencia') ? parcelaDaTx(t) : null;
                 const catSug = cats.find(c => c.id === sugerirCategoria(noCartao ? { ...t, tipo: 'cartao' } : t, indiceCat, cats));
                 return (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 12px', borderBottom: i < preview.length - 1 ? `1px solid ${T.border}` : 'none', fontSize: 12, gap: 8 }}>
@@ -472,10 +472,10 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
                 );
               })}
             </div>
-            {txsParsed.filter(t => t.tipo !== 'receita' && t.tipo !== 'transferencia' && detectParcela(t.descricao)).length > 0 && (
+            {txsParsed.filter(t => t.tipo !== 'receita' && t.tipo !== 'transferencia' && parcelaDaTx(t)).length > 0 && (
               <div style={{ marginTop: 8, fontSize: 11, color: T.purple, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ background: T.purpleGlow, borderRadius: 4, padding: '1px 6px', fontWeight: 600 }}>
-                  {txsParsed.filter(t => t.tipo !== 'receita' && t.tipo !== 'transferencia' && detectParcela(t.descricao)).length} parcelas detectadas
+                  {txsParsed.filter(t => t.tipo !== 'receita' && t.tipo !== 'transferencia' && parcelaDaTx(t)).length} parcelas detectadas
                 </span>
                 — serão confirmadas antes de importar
               </div>

@@ -4,7 +4,7 @@ import { T, BANCOS } from '../constants.js';
 import { fmt } from '../lib/formatters.js';
 import BankLogo from '../components/BankLogo.jsx';
 
-export default function Contas({ contas, txs, onNew, onEdit, onDelete }) {
+export default function Contas({ contas, txs, periodo, onAbrir, onNew, onEdit, onDelete }) {
   const isMobile = useIsMobile();
   const calcSaldo = id => {
     const c = contas.find(c => c.id === id); if (!c) return 0;
@@ -43,7 +43,10 @@ export default function Contas({ contas, txs, onNew, onEdit, onDelete }) {
               const banco = BANCOS[c.banco_slug] || BANCOS.outro;
               const txCount = txs.filter(t => t.conta_id === c.id || t.conta_destino_id === c.id).length;
               return (
-                <div key={c.id} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:T.radius, padding:20, position:'relative', overflow:'hidden' }}>
+                <div key={c.id} onClick={() => onAbrir?.(c)} title="Ver extrato desta conta"
+                  style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:T.radius, padding:20, position:'relative', overflow:'hidden', cursor:'pointer', transition:'border-color .15s' }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = T.border3}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = T.border}>
                   <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:`linear-gradient(90deg,${c.cor||banco.cor},transparent)` }} />
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -54,7 +57,7 @@ export default function Contas({ contas, txs, onNew, onEdit, onDelete }) {
                       </div>
                     </div>
                     <div style={{ display:'flex', gap:6 }}>
-                      <button onClick={() => onEdit(c)} style={{ background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, width:28, height:28, borderRadius:T.radius3, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center' }}>✎</button>
+                      <button onClick={e => { e.stopPropagation(); onEdit(c); }} style={{ background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, width:28, height:28, borderRadius:T.radius3, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center' }}>✎</button>
                       <button onClick={() => { if (window.confirm('Excluir esta conta? Lançamentos vinculados não serão excluídos.')) onDelete(c.id); }} style={{ background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, width:28, height:28, borderRadius:T.radius3, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
                     </div>
                   </div>

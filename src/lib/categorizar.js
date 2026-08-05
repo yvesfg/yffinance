@@ -110,10 +110,25 @@ function buscarNoIndice(indice, nucleo) {
  * Sugere a categoria de UM lançamento. Devolve o id ou null.
  * `cats` são as categorias do usuário; nada é criado aqui.
  */
+// Nome de categoria do banco → nome canônico do app. A fatura do Inter traz
+// "SUPERMERCADO", "COMBUSTIVEL" etc. em coluna própria: é a melhor dica que
+// existe para aquela linha, e vinha sendo jogada fora.
+const DE_PARA_BANCO = {
+  supermercado: 'Alimentação', alimentacao: 'Alimentação', restaurante: 'Alimentação', bar: 'Alimentação',
+  combustivel: 'Transporte', transporte: 'Transporte', automotivo: 'Transporte', viagem: 'Lazer',
+  saude: 'Saúde', farmacia: 'Saúde', educacao: 'Educação', lazer: 'Lazer', entretenimento: 'Lazer',
+  vestuario: 'Roupas', compras: 'Roupas', casa: 'Moradia', moradia: 'Moradia', servicos: 'Serviços',
+  telefone: 'Serviços', assinatura: 'Serviços', eletronicos: 'Serviços',
+};
+
 export function sugerirCategoria(tx, indice, cats) {
   if (tx.categoria_id) return tx.categoria_id;
   const tipoAlvo = tipoDaCategoria(tx);
   const daCategoria = id => cats.find(c => c.id === id);
+  const porNome = nome => {
+    const alvo = semAcento(nome || '').toLowerCase().trim();
+    return alvo && cats.find(x => x.tipo === tipoAlvo && semAcento(x.nome).toLowerCase() === alvo);
+  };
 
   // 1. o que você já categorizou
   const doHistorico = buscarNoIndice(indice, nucleoDescricao(tx.descricao));
@@ -123,7 +138,14 @@ export function sugerirCategoria(tx, indice, cats) {
     if (c && c.tipo === tipoAlvo) return doHistorico;
   }
 
-  // 2. padrões conhecidos
+  // 2. a categoria que o próprio banco informou na fatura
+  if (tx.categoriaBanco) {
+    const bruta = semAcento(tx.categoriaBanco).toLowerCase().trim();
+    const c = porNome(tx.categoriaBanco) || porNome(DE_PARA_BANCO[bruta]);
+    if (c) return c.id;
+  }
+
+  // 3. padrões conhecidos
   const texto = ' ' + semAcento(tx.descricao).toLowerCase() + ' ';
   for (const p of PADROES) {
     if (p.tipo !== tipoAlvo) continue;

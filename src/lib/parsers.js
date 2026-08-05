@@ -8,12 +8,37 @@ export function normData(raw) {
   return raw;
 }
 
+// Acento fora, para casar cabeçalho de CSV ("Lançamento" ≡ "lancamento")
+export const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+/**
+ * Valor monetário em qualquer formato que os bancos brasileiros mandam.
+ *
+ * O símbolo da moeda quebrava tudo: a fatura do Inter traz "R$ 1.280,12" com
+ * espaço NÃO-QUEBRÁVEL, e o parseFloat parava no "R" — a compra de R$ 1.280,12
+ * virava R$ 1,28. Agora o símbolo (e qualquer letra) sai antes da conversão, e
+ * quem decide o separador decimal é a ÚLTIMA pontuação, não uma lista de casos.
+ */
 export function normValor(raw) {
-  raw = (raw || '').trim().replace(/['"]/g, '').replace(/\s/g, '');
-  if (/\d+\.\d{3},\d+/.test(raw) || (/\d+,\d{2}$/.test(raw) && !raw.includes('.')))
-    return parseFloat(raw.replace(/\./g, '').replace(',', '.'));
-  if (/\d+,\d{1,2}$/.test(raw)) return parseFloat(raw.replace(',', '.'));
-  return parseFloat(raw.replace(/[^0-9.-]/g, ''));
+  let s = String(raw ?? '').replace(/[\s ]/g, '').replace(/['"]/g, '');
+  if (!s) return NaN;
+  // "-R$ 45,60", "45,60-" e "(45,60)" são todos negativos
+  const negativo = s.includes('-') || /^\(.*\)$/.test(s);
+  s = s.replace(/[^0-9.,]/g, '');
+  if (!s) return NaN;
+
+  const virgula = s.lastIndexOf(','), ponto = s.lastIndexOf('.');
+  if (virgula > ponto) {
+    s = s.replace(/\./g, '').replace(',', '.');        // 1.280,12
+  } else if (ponto > virgula) {
+    s = /^\d{1,3}(\.\d{3})+$/.test(s)
+      ? s.replace(/\./g, '')                            // 1.280 (milhar, sem centavos)
+      : s.replace(/,/g, '');                            // 1,280.12
+  } else {
+    s = s.replace(',', '.');
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? NaN : (negativo ? -n : n);
 }
 
 // Movimentação entre contas (a mesma operação aparece nos dois extratos)
@@ -68,14 +93,31 @@ export function parseOFX(content) {
   return { txs };
 }
 
-export function parseCSV(content) {
-  let lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n').filter(l => l.trim());
+// Só é coluna de débito/crédito se o CONTEÚDO for débito/crédito. A fatura do
+// Inter tem uma coluna "Tipo" com "Parcela 1/15" dentro: tratada como D/C, o
+// "c" de "parcela" fazia a compra virar receita.
+const DC_CREDITO = /^(c|cr|credito|credit|entrada|receita)$/;
+const DC_DEBITO  = /^(d|db|deb|debito|debit|saida|despesa)$/;
+const ehColunaDC = valores => {
+  const v = valores.filter(Boolean).map(x => semAcento(x).toLowerCase().trim());
+  return v.length > 0 && v.every(x => DC_CREDITO.test(x) || DC_DEBITO.test(x));
+};
+
+/**
+ * @param {object} opts
+ * @param {boolean} opts.fatura  fatura de cartão: aqui valor positivo é COMPRA
+ *   (saída), o contrário do extrato de conta. Sem isso a fatura inteira entra
+ *   invertida, como se cada compra fosse dinheiro entrando.
+ */
+export function parseCSV(content, { fatura = false } = {}) {
+  let lines = String(content).replace(/^﻿/, '')   // BOM do Excel
+    .replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n').filter(l => l.trim());
   if (lines.length < 2) return { error: 'CSV vazio' };
 
   const sep = lines[0].includes(';') ? ';' : ',';
   let headerIdx = 0;
   for (let i = 0; i < Math.min(5, lines.length); i++) {
-    const low = lines[i].toLowerCase();
+    const low = semAcento(lines[i]).toLowerCase();
     if (low.includes('date') || low.includes('release') || low.includes('data') || low.includes('lancamento') || low.includes('historico')) {
       headerIdx = i; break;
     }
@@ -83,29 +125,68 @@ export function parseCSV(content) {
   lines = lines.slice(headerIdx);
   if (lines.length < 2) return { error: 'Cabeçalho não encontrado' };
 
-  const headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+  // Split que respeita aspas: a fatura do Inter é separada por vírgula E tem
+  // vírgula DENTRO do valor ("R$ 1.280,12"). Partindo no separador cru, o
+  // campo virava "R$ 1.280" e a compra de R$ 1.280,12 entrava como R$ 1.280.
+  const corta = linha => {
+    const campos = []; let atual = '', dentroDeAspas = false;
+    for (let i = 0; i < linha.length; i++) {
+      const c = linha[i];
+      if (c === '"') {
+        if (dentroDeAspas && linha[i + 1] === '"') { atual += '"'; i++; }  // "" escapado
+        else dentroDeAspas = !dentroDeAspas;
+      } else if (c === sep && !dentroDeAspas) { campos.push(atual); atual = ''; }
+      else atual += c;
+    }
+    campos.push(atual);
+    return campos.map(s => s.trim());
+  };
+  // Cabeçalho sem acento: o Inter escreve "Lançamento" e a busca era por
+  // "lancamento", então a descrição não era encontrada e virava "Transação".
+  const headers = corta(lines[0]).map(h => semAcento(h).toLowerCase());
   const fi = (...ns) => { for (const n of ns) { const i = headers.findIndex(h => h.includes(n)); if (i >= 0) return i; } return -1; };
-  const iD    = fi('release_date', 'data', 'date', 'dt', 'lançamento', 'lancamento');
-  const iV    = fi('net_amount', 'transaction_net', 'amount', 'valor', 'montante', 'value', 'vlr', 'crédito', 'debito');
-  const iDesc = fi('transaction_type', 'historico', 'descri', 'memo', 'hist', 'name', 'lancamento');
+  const iD    = fi('release_date', 'data', 'date', 'dt');
+  const iV    = fi('net_amount', 'transaction_net', 'amount', 'valor', 'montante', 'value', 'vlr', 'credito', 'debito');
+  const iDesc = fi('transaction_type', 'historico', 'lancamento', 'descri', 'memo', 'hist', 'name', 'estabelecimento');
   const iTipo = fi('tipo', 'type', 'natureza', 'd/c', 'dc');
+  const iCat  = fi('categoria', 'category');
 
   if (iD < 0 || iV < 0) return { error: `Colunas não reconhecidas: ${headers.slice(0,5).join(', ')}` };
 
-  const txs = lines.slice(1).map(line => {
-    const cols = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
-    if (cols.length <= Math.max(iD, iV)) return null;
+  const corpo = lines.slice(1).map(corta).filter(c => c.length > Math.max(iD, iV));
+  const usaDC = iTipo >= 0 && ehColunaDC(corpo.map(c => c[iTipo]));
+
+  const txs = corpo.map(cols => {
     const data = normData(cols[iD]);
     const vRaw = normValor(cols[iV]);
     const valor = Math.abs(vRaw);
     if (!data || !valor || isNaN(valor)) return null;
+
     const descricao = iDesc >= 0 ? (cols[iDesc] || 'Transação') : 'Transação';
-    // Coluna D/C do banco tem prioridade sobre a heurística de descrição
-    const sentido = iTipo >= 0
-      ? (cols[iTipo].toLowerCase().includes('c') ? 'entrada' : 'saida')
-      : detectSentido(descricao, vRaw);
+    const colTipo   = iTipo >= 0 ? semAcento(cols[iTipo] || '').toLowerCase() : '';
+
+    let sentido;
+    if (usaDC) {
+      sentido = DC_CREDITO.test(colTipo.trim()) ? 'entrada' : 'saida';
+    } else if (fatura) {
+      // Na fatura tudo é compra, menos estorno/crédito (que vem negativo)
+      sentido = (vRaw < 0 || /estorno|credito|pagamento recebido/.test(colTipo)) ? 'entrada' : 'saida';
+    } else {
+      sentido = detectSentido(descricao, vRaw);
+    }
+
+    // "Parcela 1/15" costuma vir em coluna própria, não na descrição
+    const mParc = /(\d{1,2})\s*\/\s*(\d{1,3})/.exec(colTipo);
     const tipo = sentido === 'entrada' ? 'receita' : 'despesa';
-    return { data, valor, tipo, sentido, transf: ehTransferencia(descricao), descricao, _sel: true };
+
+    return {
+      data, valor, tipo, sentido,
+      transf: ehTransferencia(descricao),
+      descricao,
+      parcela: mParc ? `${Number(mParc[1])}/${Number(mParc[2])}` : '',
+      categoriaBanco: iCat >= 0 ? (cols[iCat] || '') : '',
+      _sel: true,
+    };
   }).filter(Boolean);
 
   if (!txs.length) return { error: 'Nenhuma transação válida' };

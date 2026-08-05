@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useIsMobile } from '../lib/useMedia.js';
+import PeriodoSelect from '../components/PeriodoSelect.jsx';
 import { T } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 
@@ -12,18 +13,11 @@ const TIPO_INFO = {
   cartao:        { label:'▣ Cartão',         color: T.purple, bg: T.purpleGlow },
 };
 
-export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit, onDelete, mesAtual, setMesAtual, loadTxs }) {
+export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit, onDelete, periodo, setPeriodo }) {
   const isMobile = useIsMobile();
   const [filtTipo, setFiltTipo] = useState('todos');
   const [filtStatus, setFiltStatus] = useState('todos');
 
-  const [ano, mes] = mesAtual.split('-').map(Number);
-  const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  const mudarMes = d => {
-    const dt = new Date(ano, mes - 1 + d, 1);
-    setMesAtual(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`);
-    loadTxs();
-  };
 
   const lista = txs
     .filter(t => filtTipo === 'todos' || t.tipo === filtTipo)
@@ -38,9 +32,7 @@ export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit,
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
         <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Lançamentos</h2>
         <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-          <button onClick={() => mudarMes(-1)} style={{ background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, width:28, height:28, borderRadius:T.radius3, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center' }}>‹</button>
-          <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12, minWidth:110, textAlign:'center', color:T.txt }}>{MESES[mes-1]} {ano}</span>
-          <button onClick={() => mudarMes(1)} style={{ background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, width:28, height:28, borderRadius:T.radius3, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center' }}>›</button>
+          <PeriodoSelect value={periodo} onChange={setPeriodo} />
           <button onClick={onNew} style={{ background:T.green, color:'#000', border:'none', borderRadius:T.radius2, padding:'8px 16px', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600 }}>+ Novo</button>
         </div>
       </div>

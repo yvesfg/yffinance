@@ -32,6 +32,22 @@ export function detectParcela(desc) {
 }
 
 /**
+ * Parcela de uma transação, venha de onde vier. A fatura do Inter traz
+ * "Parcela 1/15" em COLUNA PRÓPRIA, não na descrição — só olhar a descrição
+ * perdia todo o parcelamento de fatura.
+ */
+export function parcelaDaTx(tx) {
+  const m = /^(\d{1,2})\/(\d{1,3})$/.exec(String(tx?.parcela || '').trim());
+  if (m) {
+    const atual = Number(m[1]), total = Number(m[2]);
+    if (atual >= 1 && total >= 2 && atual <= total && total <= 120) {
+      return { base: String(tx.descricao || '').trim(), atual, total };
+    }
+  }
+  return detectParcela(tx?.descricao);
+}
+
+/**
  * Gera todos os lançamentos de parcelas a partir da parcela atual até a final.
  * @param {object} tx   — transação base com data, valor, tipo, etc.
  * @param {number} atual — número da parcela atual (ex: 2)

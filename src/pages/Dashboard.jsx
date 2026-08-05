@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useIsMobile } from '../lib/useMedia.js';
+import PeriodoSelect from '../components/PeriodoSelect.jsx';
+import { rotuloPeriodo, periodoMes, periodoLivre } from '../lib/periodo.js';
 import { T, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { sb } from '../supabase.js';
@@ -52,7 +54,7 @@ function proximoMes(ym) {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
 }
 
-export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, loadTxs, perfil }) {
+export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesAtual, perfil, onAbrirConta }) {
   const isMobile = useIsMobile();
   const rec  = txs.filter(t => t.tipo === 'receita').reduce((s, t) => s + Number(t.valor), 0);
   const desp = txs.filter(t => t.tipo === 'despesa').reduce((s, t) => s + Number(t.valor), 0);
@@ -136,11 +138,26 @@ export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, lo
   const saldoTotal = contas.reduce((s, c) => s + calcSaldo(c.id), 0);
 
   const [ano, mes] = mesAtual.split('-').map(Number);
-  const mudarMes = d => {
-    const dt = new Date(ano, mes - 1 + d, 1);
-    setMesAtual(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`);
-    loadTxs();
-  };
+
+  // Faixa de datas que existe na base, para poder apontar o caminho quando o
+  // período escolhido não tem nada.
+  const [faixa, setFaixa] = useState(null);
+  useEffect(() => {
+    if (txs.length > 0) { setFaixa(null); return; }
+    let vivo = true;
+    (async () => {
+      try {
+        const [ini, fim] = await Promise.all([
+          sb(`cf_transacoes?perfil=eq.${perfil}&select=data&order=data.asc&limit=1`),
+          sb(`cf_transacoes?perfil=eq.${perfil}&select=data&order=data.desc&limit=1`),
+        ]);
+        const total = await sb(`cf_transacoes?perfil=eq.${perfil}&select=id&limit=1000`);
+        if (!vivo || !ini?.length || !fim?.length) return;
+        setFaixa({ primeira: ini[0].data, ultima: fim[0].data, qtd: (total || []).length });
+      } catch { if (vivo) setFaixa(null); }
+    })();
+    return () => { vivo = false; };
+  }, [txs.length, perfil]);
 
   const catMap = {};
   txs.filter(t => t.tipo === 'despesa' || t.tipo === 'cartao').forEach(t => {
@@ -160,14 +177,34 @@ export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, lo
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 700, color: T.txt, margin: 0, letterSpacing: -.5 }}>Dashboard</h2>
-          <p style={{ fontSize: 12, color: T.txt3, marginTop: 3 }}>{perfil === 'pessoal' ? 'Finanças pessoais' : 'YFGroup Transportes'}</p>
+          <p style={{ fontSize: 12, color: T.txt3, marginTop: 3 }}>{perfil === 'pessoal' ? 'Finanças pessoais' : 'YFGroup Transportes'} · {rotuloPeriodo(periodo)}</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => mudarMes(-1)} style={{ background: T.bg3, border: `1px solid ${T.border}`, color: T.txt2, width: 28, height: 28, borderRadius: T.radius3, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, minWidth: 100, textAlign: 'center', color: T.txt }}>{MESES[mes - 1]} {ano}</span>
-          <button onClick={() => mudarMes(1)} style={{ background: T.bg3, border: `1px solid ${T.border}`, color: T.txt2, width: 28, height: 28, borderRadius: T.radius3, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
-        </div>
+        <PeriodoSelect value={periodo} onChange={setPeriodo} />
       </div>
+
+      {/* Período vazio mas existe movimento em outro lugar. Era exatamente o
+          que acontecia depois de importar: extrato de janeiro a junho, tela em
+          agosto, e nenhuma pista de que os dados estavam lá. */}
+      {txs.length === 0 && faixa && (
+        <div style={{ background: T.bg2, border: `1px solid ${T.gold}40`, borderRadius: T.radius, padding: '14px 18px', marginBottom: 16 }}>
+          <div style={{ color: T.gold, fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
+            Nenhum lançamento em {rotuloPeriodo(periodo)}
+          </div>
+          <div style={{ fontSize: 12, color: T.txt2 }}>
+            Você tem {faixa.qtd} lançamentos entre {fmtD(faixa.primeira)} e {fmtD(faixa.ultima)}.
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            <button onClick={() => setPeriodo(periodoMes(faixa.ultima.slice(0, 7)))}
+              style={{ background: T.green, color: '#000', border: 'none', borderRadius: T.radius3, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans',sans-serif" }}>
+              Ir para {rotuloPeriodo(periodoMes(faixa.ultima.slice(0, 7)))}
+            </button>
+            <button onClick={() => setPeriodo(periodoLivre(faixa.primeira, faixa.ultima))}
+              style={{ background: T.bg3, color: T.txt2, border: `1px solid ${T.border2}`, borderRadius: T.radius3, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans',sans-serif" }}>
+              Ver tudo que existe
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 14, marginBottom: 14 }}>
@@ -212,7 +249,8 @@ export default function Dashboard({ txs, contas, cats, mesAtual, setMesAtual, lo
             : contas.map(c => {
               const s = calcSaldo(c.id);
               return (
-                <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:`1px solid ${T.border}` }}>
+                <div key={c.id} onClick={() => onAbrirConta?.(c.id)} title="Ver extrato desta conta"
+                  style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:`1px solid ${T.border}`, cursor:'pointer' }}>
                   <BankLogo slug={c.banco_slug} url={c.logo_url} size={26} />
                   <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: T.txt, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.nome}</div>
                   <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color: s >= 0 ? T.green : T.red }}>{fmt(s)}</div>
