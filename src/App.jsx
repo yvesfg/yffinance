@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { T } from './constants.js';
 import { sb } from './supabase.js';
 import { periodoMes, periodoLivre, mesDeHoje, mesDoPeriodo } from './lib/periodo.js';
@@ -86,11 +86,24 @@ export default function App() {
 
   const showToast = (msg, type = 'success') => setToast({ msg, type });
 
-  // Carrega pelo PERÍODO escolhido, não mais só pelo mês corrente
+  // Carrega pelo PERÍODO escolhido, não mais só pelo mês corrente.
+  //
+  // O contador existe porque as respostas podem chegar fora de ordem: clicando
+  // ‹ ‹ rápido, a busca do período antigo pode responder DEPOIS da nova e
+  // sobrescrever a tela — a lista somia e reaparecia com o conteúdo errado.
+  // Só a resposta da busca mais recente tem permissão de escrever.
+  const buscaAtual = useRef(0);
   const loadTxs = useCallback(async () => {
     if (!perfil) return;
-    const data = await sb(`cf_transacoes?perfil=eq.${perfil}&data=gte.${periodo.inicio}&data=lte.${periodo.fim}&order=data.desc,id.desc`);
-    setTxs(data || []);
+    const minhaBusca = ++buscaAtual.current;
+    try {
+      const data = await sb(`cf_transacoes?perfil=eq.${perfil}&data=gte.${periodo.inicio}&data=lte.${periodo.fim}&order=data.desc,id.desc`);
+      if (minhaBusca !== buscaAtual.current) return;   // chegou atrasada
+      setTxs(data || []);
+    } catch (e) {
+      // Antes o erro sumia calado e a tela ficava com dados do período anterior
+      if (minhaBusca === buscaAtual.current) showToast('Erro ao carregar lançamentos: ' + (e.message || e), 'error');
+    }
   }, [perfil, periodo.inicio, periodo.fim]);
 
   const loadContas = useCallback(async () => {
