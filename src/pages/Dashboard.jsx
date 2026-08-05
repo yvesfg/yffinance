@@ -5,6 +5,7 @@ import AvisoPeriodoVazio from '../components/AvisoPeriodoVazio.jsx';
 import { rotuloPeriodo, periodoMes, periodoLivre } from '../lib/periodo.js';
 import { T, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
+import { totais, saidasPorCategoria, saldoDaConta } from '../lib/regime.js';
 import { sb } from '../supabase.js';
 import BankLogo from '../components/BankLogo.jsx';
 
@@ -57,11 +58,13 @@ function proximoMes(ym) {
 
 export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesAtual, perfil, onAbrirConta }) {
   const isMobile = useIsMobile();
-  const rec  = txs.filter(t => t.tipo === 'receita').reduce((s, t) => s + Number(t.valor), 0);
+  // Regime de competência é o padrão (gasto no dia da compra). O alternador
+  // para caixa entra na Etapa 3; a regra que impede contar o mesmo dinheiro
+  // duas vezes já vale aqui.
+  const regime = 'competencia';
+  const { entradas: rec, saidas, resultado } = totais(txs, regime);
   const desp = txs.filter(t => t.tipo === 'despesa').reduce((s, t) => s + Number(t.valor), 0);
   const cart = txs.filter(t => t.tipo === 'cartao').reduce((s, t) => s + Number(t.valor), 0);
-  const saidas    = desp + cart;
-  const resultado = rec - saidas;
 
   // Previsão do próximo mês: lançamentos já agendados/parcelados que caem no mês seguinte
   const [prev, setPrev] = useState({ saidas: 0, entradas: 0, qtd: 0 });
@@ -126,27 +129,16 @@ export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesA
   const saidasTrend    = historico.map(h => h.saidas);
   const resultadoTrend = historico.map(h => h.resultado);
 
+  // Saldo é sempre caixa: compra no cartão não tira dinheiro da conta
   const calcSaldo = id => {
     const c = contas.find(c => c.id === id); if (!c) return 0;
-    let s = Number(c.saldo_inicial) || 0;
-    txs.forEach(t => {
-      if (t.conta_id === id && (t.tipo === 'despesa' || t.tipo === 'cartao' || t.tipo === 'transferencia')) s -= Number(t.valor);
-      if (t.conta_id === id && t.tipo === 'receita') s += Number(t.valor);
-      if (t.conta_destino_id === id && t.tipo === 'transferencia') s += Number(t.valor);
-    });
-    return s;
+    return saldoDaConta(txs, id, c.saldo_inicial);
   };
   const saldoTotal = contas.reduce((s, c) => s + calcSaldo(c.id), 0);
 
   const [ano, mes] = mesAtual.split('-').map(Number);
 
-  const catMap = {};
-  txs.filter(t => t.tipo === 'despesa' || t.tipo === 'cartao').forEach(t => {
-    const cat = cats.find(c => c.id === t.categoria_id);
-    const n = cat ? cat.nome : 'Sem categoria';
-    catMap[n] = (catMap[n] || 0) + Number(t.valor);
-  });
-  const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const topCats = saidasPorCategoria(txs, cats, regime).slice(0, 6);
   const totalCat = topCats.reduce((s, [, v]) => s + v, 0) || 1;
   const CORES = ['#f04f6e','#f97316','#f7c645','#4d8eff','#9b6dff','#05d49b'];
 

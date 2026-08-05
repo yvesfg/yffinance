@@ -4,6 +4,7 @@ import PeriodoSelect from '../components/PeriodoSelect.jsx';
 import AvisoPeriodoVazio from '../components/AvisoPeriodoVazio.jsx';
 import { T, BANCOS } from '../constants.js';
 import { fmt, fmtD, exportCSV } from '../lib/formatters.js';
+import { totais } from '../lib/regime.js';
 
 const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box' };
 
@@ -35,8 +36,7 @@ export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriod
     return lista;
   }, [txs, filtTipo, filtConta, filtCat, busca, ordenacao]);
 
-  const totRec  = filtradas.filter(t => t.tipo === 'receita').reduce((s, t) => s + Number(t.valor), 0);
-  const totDesp = filtradas.filter(t => t.tipo === 'despesa' || t.tipo === 'cartao').reduce((s, t) => s + Number(t.valor), 0);
+  const { entradas: totRec, saidas: totDesp } = totais(filtradas, 'competencia');
 
   const contaNome = id => contas.find(c => c.id === id)?.nome || '';
   const catNome   = id => { const c = cats.find(c => c.id === id); return c ? `${c.icone||''} ${c.nome}` : ''; };

@@ -2,19 +2,15 @@ import React from 'react';
 import { useIsMobile } from '../lib/useMedia.js';
 import { T, BANCOS } from '../constants.js';
 import { fmt } from '../lib/formatters.js';
+import { saldoDaConta } from '../lib/regime.js';
 import BankLogo from '../components/BankLogo.jsx';
 
 export default function Contas({ contas, txs, periodo, onAbrir, onNew, onEdit, onDelete }) {
   const isMobile = useIsMobile();
+  // Saldo é sempre caixa: compra no cartão não tira dinheiro da conta
   const calcSaldo = id => {
     const c = contas.find(c => c.id === id); if (!c) return 0;
-    let s = Number(c.saldo_inicial) || 0;
-    txs.forEach(t => {
-      if (t.conta_id === id && (t.tipo === 'despesa' || t.tipo === 'cartao' || t.tipo === 'transferencia')) s -= Number(t.valor);
-      if (t.conta_id === id && t.tipo === 'receita') s += Number(t.valor);
-      if (t.conta_destino_id === id && t.tipo === 'transferencia') s += Number(t.valor);
-    });
-    return s;
+    return saldoDaConta(txs, id, c.saldo_inicial);
   };
 
   const saldoTotal = contas.reduce((s, c) => s + calcSaldo(c.id), 0);

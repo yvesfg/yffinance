@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { T } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { sb } from '../supabase.js';
+import { saldoDaConta } from '../lib/regime.js';
 import { useIsMobile } from '../lib/useMedia.js';
 import BankLogo from '../components/BankLogo.jsx';
 import PeriodoSelect from '../components/PeriodoSelect.jsx';
@@ -43,12 +44,7 @@ export default function ContaDetalhe({ conta, txs, contas, cats, periodo, setPer
       try {
         const data = await sb(`cf_transacoes?or=(conta_id.eq.${conta.id},conta_destino_id.eq.${conta.id})&data=lte.${periodo.fim}&select=data,tipo,valor,conta_id,conta_destino_id`);
         if (!vivo) return;
-        const move = (linhas) => linhas.reduce((s, t) => {
-          if (t.conta_id === conta.id && (t.tipo === 'despesa' || t.tipo === 'cartao' || t.tipo === 'transferencia')) return s - Number(t.valor);
-          if (t.conta_id === conta.id && t.tipo === 'receita') return s + Number(t.valor);
-          if (t.conta_destino_id === conta.id && t.tipo === 'transferencia') return s + Number(t.valor);
-          return s;
-        }, Number(conta.saldo_inicial) || 0);
+        const move = linhas => saldoDaConta(linhas, conta.id, conta.saldo_inicial);
         const todas = data || [];
         setSaldos({
           final: move(todas),
