@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { T } from './constants.js';
 import { sb } from './supabase.js';
-import { periodoMes, periodoLivre, mesDeHoje, mesDoPeriodo } from './lib/periodo.js';
+import { periodoMes, mesDeHoje, mesDoPeriodo } from './lib/periodo.js';
 import { supabase } from './lib/supabaseClient.js';
 
 import Login from './pages/Login.jsx';
@@ -253,7 +253,15 @@ export default function App() {
       case 'lancamentos': return <Lancamentos {...pageProps} onNew={openNewTx} onEdit={openEditTx} onDelete={deleteTx} />;
       case 'contas':      return <Contas contas={contas} txs={txs} periodo={periodo} onAbrir={c => setDetalhe({ tipo: 'conta', id: c.id })} onNew={() => { setEditConta(null); setModalConta(true); }} onEdit={c => { setEditConta(c); setModalConta(true); }} onDelete={deleteConta} />;
       case 'cartoes':     return <Cartoes cartoes={cartoes} txs={txs} contas={contas} periodo={periodo} onAbrir={c => setDetalhe({ tipo: 'cartao', id: c.id })} onNew={() => { setEditCartao(null); setModalCartao(true); }} onEdit={c => { setEditCartao(c); setModalCartao(true); }} onDelete={deleteCartao} />;
-      case 'importar':    return <Importar contas={contas} cartoes={cartoes} cats={cats} perfil={perfil} onToast={showToast} onCreateConta={createContaQuick} onDone={faixa => { if (faixa) setPeriodo(periodoLivre(faixa.inicio, faixa.fim)); else loadTxs(); setPagina('extrato'); }} />;
+      case 'importar':    return <Importar contas={contas} cartoes={cartoes} cats={cats} perfil={perfil} onToast={showToast} onCreateConta={createContaQuick} onDone={faixa => {
+        // Ir pro MÊS mais recente do que foi importado, não pro intervalo
+        // inteiro: um import de vários meses de uma vez virava um período
+        // "livre" enorme (ex.: 8 meses), e daí as setas ‹ › da tela de
+        // Cartões passavam a pular de 8 em 8 meses (a janela desliza pela
+        // própria largura) — muito confuso pra quem só queria ir mês a mês.
+        if (faixa) setPeriodo(periodoMes(faixa.fim.slice(0, 7))); else loadTxs();
+        setPagina('extrato');
+      }} />;
       default:            return <Dashboard {...pageProps} />;
     }
   };
