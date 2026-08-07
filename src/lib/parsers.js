@@ -1,3 +1,5 @@
+import { detectParcela } from './parcelas.js';
+
 export function normData(raw) {
   raw = (raw || '').trim().replace(/['"]/g, '');
   if (/^\d{2}[-\/]\d{2}[-\/]\d{4}/.test(raw)) {
@@ -115,15 +117,6 @@ export function parseCSV(content, { fatura = false } = {}) {
   if (lines.length < 2) return { error: 'CSV vazio' };
 
   const sep = lines[0].includes(';') ? ';' : ',';
-  let headerIdx = 0;
-  for (let i = 0; i < Math.min(5, lines.length); i++) {
-    const low = semAcento(lines[i]).toLowerCase();
-    if (low.includes('date') || low.includes('release') || low.includes('data') || low.includes('lancamento') || low.includes('historico')) {
-      headerIdx = i; break;
-    }
-  }
-  lines = lines.slice(headerIdx);
-  if (lines.length < 2) return { error: 'Cabeçalho não encontrado' };
 
   // Split que respeita aspas: a fatura do Inter é separada por vírgula E tem
   // vírgula DENTRO do valor ("R$ 1.280,12"). Partindo no separador cru, o
@@ -141,15 +134,33 @@ export function parseCSV(content, { fatura = false } = {}) {
     campos.push(atual);
     return campos.map(s => s.trim());
   };
+  const fi = (headers, ...ns) => { for (const n of ns) { const i = headers.findIndex(h => h.includes(n)); if (i >= 0) return i; } return -1; };
+
+  // A fatura do Itaú em xlsx traz 13 linhas de cabeçalho do documento (nome,
+  // agência, conta, resumo do cartão, e até uma linha "Lançamentos" solta)
+  // antes da linha REAL da tabela — por isso não basta achar uma linha que
+  // contenha a palavra "data"/"lançamento" (a linha solta também contém), tem
+  // que ser a primeira linha que resolve as colunas de data E de valor.
+  let headerIdx = -1, iD = -1, iV = -1;
+  for (let i = 0; i < Math.min(30, lines.length); i++) {
+    const headers = corta(lines[i]).map(h => semAcento(h).toLowerCase());
+    const d = fi(headers, 'release_date', 'data', 'date', 'dt');
+    const v = fi(headers, 'net_amount', 'transaction_net', 'amount', 'valor', 'montante', 'value', 'vlr', 'credito', 'debito');
+    if (d >= 0 && v >= 0) { headerIdx = i; iD = d; iV = v; break; }
+  }
+  if (headerIdx < 0) return { error: `Cabeçalho não encontrado nas primeiras ${Math.min(30, lines.length)} linhas` };
+  lines = lines.slice(headerIdx);
+  if (lines.length < 2) return { error: 'Cabeçalho não encontrado' };
+
   // Cabeçalho sem acento: o Inter escreve "Lançamento" e a busca era por
   // "lancamento", então a descrição não era encontrada e virava "Transação".
   const headers = corta(lines[0]).map(h => semAcento(h).toLowerCase());
-  const fi = (...ns) => { for (const n of ns) { const i = headers.findIndex(h => h.includes(n)); if (i >= 0) return i; } return -1; };
-  const iD    = fi('release_date', 'data', 'date', 'dt');
-  const iV    = fi('net_amount', 'transaction_net', 'amount', 'valor', 'montante', 'value', 'vlr', 'credito', 'debito');
-  const iDesc = fi('transaction_type', 'historico', 'lancamento', 'descri', 'memo', 'hist', 'name', 'estabelecimento');
-  const iTipo = fi('tipo', 'type', 'natureza', 'd/c', 'dc');
-  const iCat  = fi('categoria', 'category');
+  const iDesc = fi(headers, 'transaction_type', 'historico', 'lancamento', 'descri', 'memo', 'hist', 'name', 'estabelecimento');
+  const iTipo = fi(headers, 'tipo', 'type', 'natureza', 'd/c', 'dc');
+  const iCat  = fi(headers, 'categoria', 'category');
+  // Fatura do Itaú traz "Parcela 1 de 3" em coluna própria "Parcelamento" —
+  // formato "N de M", diferente do "N/15" da fatura do Inter (colTipo, abaixo).
+  const iParc = fi(headers, 'parcelamento');
 
   if (iD < 0 || iV < 0) return { error: `Colunas não reconhecidas: ${headers.slice(0,5).join(', ')}` };
 
@@ -177,13 +188,16 @@ export function parseCSV(content, { fatura = false } = {}) {
 
     // "Parcela 1/15" costuma vir em coluna própria, não na descrição
     const mParc = /(\d{1,2})\s*\/\s*(\d{1,3})/.exec(colTipo);
+    // Itaú: mesma ideia, mas coluna "Parcelamento" no formato "Parcela N de M"
+    const pParc = !mParc && iParc >= 0 ? detectParcela(cols[iParc] || '') : null;
     const tipo = sentido === 'entrada' ? 'receita' : 'despesa';
 
     return {
       data, valor, tipo, sentido,
       transf: ehTransferencia(descricao),
       descricao,
-      parcela: mParc ? `${Number(mParc[1])}/${Number(mParc[2])}` : '',
+      parcela: mParc ? `${Number(mParc[1])}/${Number(mParc[2])}`
+        : pParc ? `${pParc.atual}/${pParc.total}` : '',
       categoriaBanco: iCat >= 0 ? (cols[iCat] || '') : '',
       _sel: true,
     };
@@ -191,4 +205,29 @@ export function parseCSV(content, { fatura = false } = {}) {
 
   if (!txs.length) return { error: 'Nenhuma transação válida' };
   return { txs };
+}
+
+/**
+ * Fatura/extrato em .xlsx (ex.: exportação nativa do Itaú): converte a
+ * planilha em texto separado por ";" e reaproveita o parseCSV — mesma
+ * detecção de cabeçalho, mesmas colunas, mesmo dedup. Datas viram dd/mm/yyyy
+ * (formato que normData já entende) em vez do número de série do Excel, e
+ * números seguem crus, sem formatação de moeda, para não depender de como o
+ * SheetJS aplica o formato "R$" da célula.
+ */
+export async function parseXLSX(file, opts = {}) {
+  const XLSX = await import('xlsx');
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const linhas = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' })
+    .map(row => row.map(cel => {
+      if (cel instanceof Date) {
+        const dd = String(cel.getDate()).padStart(2, '0');
+        const mm = String(cel.getMonth() + 1).padStart(2, '0');
+        return `${dd}/${mm}/${cel.getFullYear()}`;
+      }
+      return String(cel ?? '');
+    }).join(';'));
+  return parseCSV(linhas.join('\n'), opts);
 }

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useIsMobile } from '../lib/useMedia.js';
 import { T, BANCOS, MESES } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
-import { parseOFX, parseCSV } from '../lib/parsers.js';
+import { parseOFX, parseCSV, parseXLSX } from '../lib/parsers.js';
 import { acharOperacaoCompleta, acharContraparteSaida, chaveBase, contarPorChave, contarPorChaveNoLote, hashDedup } from '../lib/dedup.js';
 import { cicloDaCompra, datasDoCiclo, ehPagamentoFatura, ehEstornoDescricao, acharFaturaParaPagamento } from '../lib/faturas.js';
 import { detectParcela, parcelaDaTx, gerarParcelas, jaExisteParcela, uuid } from '../lib/parcelas.js';
@@ -101,8 +101,10 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
     })
     .filter(Boolean);
 
-  // CSV e OFX são lidos aqui mesmo; PDF, foto e print vão para a IA.
-  const ehTexto = f => /\.(csv|ofx|txt)$/i.test(f.name);
+  // CSV e OFX são lidos aqui mesmo; xlsx/xls (ex.: fatura nativa do Itaú)
+  // também é lido localmente; PDF, foto e print vão para a IA.
+  const ehTexto   = f => /\.(csv|ofx|txt)$/i.test(f.name);
+  const ehPlanilha = f => /\.(xlsx|xls)$/i.test(f.name);
 
   const handleFile = async e => {
     const files = [...e.target.files]; if (!files.length) return;
@@ -123,6 +125,9 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
             const txt = await lerArquivo(f);
             const result = f.name.toLowerCase().endsWith('.ofx') ? parseOFX(txt) : parseCSV(txt, { fatura: noCartao });
             txs = Array.isArray(result) ? result : (result?.txs || []);
+          } else if (ehPlanilha(f)) {
+            const result = await parseXLSX(f, { fatura: noCartao });
+            txs = Array.isArray(result) ? result : (result?.txs || []);
           } else {
             // Extrato/fatura em PDF ou imagem: uma chamada de IA por página.
             // Pode legitimamente levar perto de um minuto por página — o
@@ -139,7 +144,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
               falhas.push(`${f.name}: página${out.paginasComErro.length > 1 ? 's' : ''} ${out.paginasComErro.map(p => p.pagina).join(', ')} não leu`);
             }
           }
-          nomes.push({ nome: f.name, qtd: txs.length, ia: !ehTexto(f) });
+          nomes.push({ nome: f.name, qtd: txs.length, ia: !ehTexto(f) && !ehPlanilha(f) });
           // Marca a origem: o dedup precisa saber o que se repete DENTRO de um
           // arquivo (legítimo) e o que se repete ENTRE arquivos (sobreposição).
           todas = todas.concat(txs.map(t => ({ ...t, _arquivo: f.name })));
@@ -547,13 +552,13 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
           onMouseEnter={e => e.currentTarget.style.borderColor = T.green}
           onMouseLeave={e => e.currentTarget.style.borderColor = T.border2}
         >
-          <input ref={fileRef} type="file" accept=".csv,.ofx,.txt,.pdf,image/*" multiple style={{ display: 'none' }} onChange={handleFile} />
+          <input ref={fileRef} type="file" accept=".csv,.ofx,.txt,.xlsx,.xls,.pdf,image/*" multiple style={{ display: 'none' }} onChange={handleFile} />
           <div style={{ fontSize: 28, marginBottom: 8 }}>{lendoIA ? '🤖' : '📂'}</div>
           {lendoIA
             ? <><div style={{ fontSize: 13, color: T.txt }}>Lendo {lendoIA.arquivo} com IA… <span style={{ fontFamily: "'JetBrains Mono',monospace", color: T.txt3 }}>{lendoSegundos}s</span></div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{lendoIA.total ? `página ${Math.min(lendoIA.feito + 1, lendoIA.total)} de ${lendoIA.total}` : 'preparando páginas'} · cada página pode levar perto de 1 minuto</div></>
             : arquivos.length
             ? <><div style={{ fontSize: 13, color: T.txt }}>{arquivos.length === 1 ? arquivos[0].nome : `${arquivos.length} arquivos`}</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{txsParsed.length} transações lidas{arquivos.some(a => a.ia) ? ' (via IA)' : ''}{mesesDetectados.length ? ` · ${mesesDetectados.length} ${mesesDetectados.length === 1 ? 'mês' : 'meses'}` : ''}</div></>
-            : <><div style={{ fontSize: 13, color: T.txt2 }}>Clique para selecionar (vários de uma vez) ou arraste aqui</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>CSV e OFX são lidos na hora; PDF, foto e print do {noCartao ? 'da fatura' : 'extrato'} são lidos por IA</div></>
+            : <><div style={{ fontSize: 13, color: T.txt2 }}>Clique para selecionar (vários de uma vez) ou arraste aqui</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>CSV, OFX e XLSX são lidos na hora; PDF, foto e print do {noCartao ? 'da fatura' : 'extrato'} são lidos por IA</div></>
           }
         </div>
 
