@@ -11,6 +11,7 @@ import { indicePorHistorico, categorizarLote, sugerirCategoria } from '../lib/ca
 import { sb } from '../supabase.js';
 import ModalParcelas from '../modals/ModalParcelas.jsx';
 import ContaSelect from '../components/ContaSelect.jsx';
+import { CategoriaIcon } from '../components/Icon.jsx';
 
 // Lê um arquivo como texto (Promise)
 const lerArquivo = f => new Promise((resolve, reject) => {
@@ -640,8 +641,8 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
                     <span style={{ color: T.txt3, flexShrink: 0 }}>{fmtD(t.data)}</span>
                     <span style={{ flex: 1, color: T.txt, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.descricao}</span>
                     {catSug && (
-                      <span title="Categoria sugerida" style={{ background: T.bg2, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: 4, padding: '1px 6px', fontSize: 10, flexShrink: 0, whiteSpace: 'nowrap' }}>
-                        {catSug.icone} {catSug.nome}
+                      <span title="Categoria sugerida" style={{ background: T.bg2, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: 4, padding: '1px 6px', fontSize: 10, flexShrink: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        <CategoriaIcon emoji={catSug.icone} s={10} /> {catSug.nome}
                       </span>
                     )}
                     {parc && (

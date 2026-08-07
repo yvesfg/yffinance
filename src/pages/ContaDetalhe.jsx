@@ -6,6 +6,7 @@ import { saldoDaConta } from '../lib/regime.js';
 import { useIsMobile } from '../lib/useMedia.js';
 import BankLogo from '../components/BankLogo.jsx';
 import PeriodoSelect from '../components/PeriodoSelect.jsx';
+import Icon, { CategoriaIcon } from '../components/Icon.jsx';
 
 const Card = ({ label, valor, cor, sub }) => (
   <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: '14px 16px' }}>
@@ -57,21 +58,21 @@ export default function ContaDetalhe({ conta, txs, contas, cats, periodo, setPer
     return () => { vivo = false; };
   }, [conta.id, conta.saldo_inicial, periodo.inicio, periodo.fim]);
 
-  const catNome = id => { const c = cats.find(x => x.id === id); return c ? `${c.icone || ''} ${c.nome}` : ''; };
+  const catObj = id => cats.find(x => x.id === id);
   const contaNome = id => contas.find(c => c.id === id)?.nome || '';
 
   return (
     <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'DM Sans',sans-serif" }}>
       {/* Cabeçalho */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
-        <button onClick={onVoltar} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: T.radius3, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans',sans-serif" }}>← Contas</button>
+        <button onClick={onVoltar} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: T.radius3, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans',sans-serif", display: 'flex', alignItems: 'center', gap: 5 }}><Icon n="chevron-left" s={13} /> Contas</button>
         <BankLogo slug={conta.banco_slug} url={conta.logo_url} size={32} />
         <div style={{ flex: 1, minWidth: 120 }}>
           <h2 style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 700, color: T.txt, margin: 0, letterSpacing: -.3 }}>{conta.nome}</h2>
           <div style={{ fontSize: 11, color: T.txt3 }}>{conta.banco} · {conta.tipo}</div>
         </div>
         <PeriodoSelect value={periodo} onChange={setPeriodo} />
-        <button onClick={() => onEditConta(conta)} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, width: 30, height: 30, borderRadius: T.radius3, cursor: 'pointer' }} title="Editar conta">✎</button>
+        <button onClick={() => onEditConta(conta)} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, width: 30, height: 30, borderRadius: T.radius3, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Editar conta"><Icon n="edit" s={14} /></button>
       </div>
 
       {/* Números do período */}
@@ -101,20 +102,22 @@ export default function ContaDetalhe({ conta, txs, contas, cats, periodo, setPer
                 <div style={{ width: 28, height: 28, borderRadius: 8, background: bg, color: cor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{icon}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, color: T.txt, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.descricao}</div>
-                  <div style={{ fontSize: 11, color: T.txt3, marginTop: 1 }}>
-                    {[fmtD(t.data), catNome(t.categoria_id),
-                      t.tipo === 'transferencia' && (t.conta_destino_id === conta.id
-                        ? `de ${contaNome(t.conta_id) || '—'}`
-                        : `para ${contaNome(t.conta_destino_id) || 'destino não informado'}`),
-                    ].filter(Boolean).join(' · ')}
+                  <div style={{ fontSize: 11, color: T.txt3, marginTop: 1, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                    {[
+                      <span key="data">{fmtD(t.data)}</span>,
+                      catObj(t.categoria_id) && <span key="cat" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><CategoriaIcon emoji={catObj(t.categoria_id).icone} s={11} />{catObj(t.categoria_id).nome}</span>,
+                      t.tipo === 'transferencia' && (
+                        <span key="transf">{t.conta_destino_id === conta.id ? `de ${contaNome(t.conta_id) || '—'}` : `para ${contaNome(t.conta_destino_id) || 'destino não informado'}`}</span>
+                      ),
+                    ].filter(Boolean).map((node, i) => <React.Fragment key={i}>{i > 0 && <span>·</span>}{node}</React.Fragment>)}
                   </div>
                 </div>
                 <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: cor, whiteSpace: 'nowrap' }}>
                   {entrou ? '+' : '-'}{fmt(t.valor)}
                 </span>
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                  <button onClick={() => onEdit(t)} style={{ background: 'transparent', border: 'none', color: T.txt3, cursor: 'pointer', fontSize: 13, padding: '2px 4px' }} title="Editar">✎</button>
-                  <button onClick={() => { if (window.confirm('Excluir esta movimentação?')) onDelete(t.id); }} style={{ background: 'transparent', border: 'none', color: T.txt3, cursor: 'pointer', fontSize: 13, padding: '2px 4px' }} title="Excluir">✕</button>
+                  <button onClick={() => onEdit(t)} style={{ background: 'transparent', border: 'none', color: T.txt3, cursor: 'pointer', padding: '2px 4px', display: 'flex' }} title="Editar"><Icon n="edit" s={13} /></button>
+                  <button onClick={() => { if (window.confirm('Excluir esta movimentação?')) onDelete(t.id); }} style={{ background: 'transparent', border: 'none', color: T.txt3, cursor: 'pointer', padding: '2px 4px', display: 'flex' }} title="Excluir"><Icon n="trash" s={13} /></button>
                 </div>
               </div>
             );

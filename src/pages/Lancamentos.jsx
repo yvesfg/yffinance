@@ -4,6 +4,7 @@ import PeriodoSelect from '../components/PeriodoSelect.jsx';
 import AvisoPeriodoVazio from '../components/AvisoPeriodoVazio.jsx';
 import { T } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
+import Icon, { CategoriaIcon } from '../components/Icon.jsx';
 
 const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box', width: '100%' };
 
@@ -25,7 +26,7 @@ export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit,
     .filter(t => filtStatus === 'todos' || t.status === filtStatus)
     .sort((a, b) => new Date(b.data) - new Date(a.data));
 
-  const catNome   = id => { const c = cats.find(c => c.id === id); return c ? `${c.icone||''} ${c.nome}` : 'Sem categoria'; };
+  const catObj    = id => cats.find(c => c.id === id);
   const contaNome = id => contas.find(c => c.id === id)?.nome || cartoes.find(c => c.id === id)?.nome || '';
 
   return (
@@ -84,7 +85,10 @@ export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit,
                       </div>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:13, color:T.txt, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.descricao}</div>
-                        <div style={{ fontSize:11, color:T.txt3, marginTop:1 }}>{contaNome(t.conta_id)}{t.categoria_id ? ` · ${catNome(t.categoria_id)}` : ''}</div>
+                        <div style={{ fontSize:11, color:T.txt3, marginTop:1, display:'flex', alignItems:'center', gap:4 }}>
+                          <span>{contaNome(t.conta_id)}</span>
+                          {catObj(t.categoria_id) && <><span>·</span><CategoriaIcon emoji={catObj(t.categoria_id).icone} s={11} /><span>{catObj(t.categoria_id).nome}</span></>}
+                        </div>
                       </div>
                       {t.status === 'pendente' && (
                         <span style={{ fontSize:10, background:T.goldGlow, color:T.gold, borderRadius:4, padding:'2px 6px', fontWeight:600 }}>pendente</span>
@@ -93,8 +97,8 @@ export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit,
                         {t.tipo==='receita'?'+':t.tipo==='transferencia'?'±':'-'}{fmt(t.valor)}
                       </span>
                       <div style={{ display:'flex', gap:4, flexShrink:0 }}>
-                        <button onClick={() => onEdit(t)} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', fontSize:13, padding:'2px 4px' }}>✎</button>
-                        <button onClick={() => { if (window.confirm('Excluir?')) onDelete(t.id); }} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', fontSize:13, padding:'2px 4px' }}>✕</button>
+                        <button onClick={() => onEdit(t)} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', padding:'2px 4px', display:'flex' }}><Icon n="edit" s={13} /></button>
+                        <button onClick={() => { if (window.confirm('Excluir?')) onDelete(t.id); }} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', padding:'2px 4px', display:'flex' }}><Icon n="trash" s={13} /></button>
                       </div>
                     </div>
                   );

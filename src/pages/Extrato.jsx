@@ -6,6 +6,7 @@ import { T, BANCOS } from '../constants.js';
 import { fmt, fmtD, exportCSV } from '../lib/formatters.js';
 import { totais } from '../lib/regime.js';
 import RegimeToggle from '../components/RegimeToggle.jsx';
+import Icon, { CategoriaIcon } from '../components/Icon.jsx';
 
 const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box' };
 
@@ -42,7 +43,7 @@ export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriod
   const { entradas: totRec, saidas: totDesp } = totais(filtradas, regime);
 
   const contaNome = id => contas.find(c => c.id === id)?.nome || '';
-  const catNome   = id => { const c = cats.find(c => c.id === id); return c ? `${c.icone||''} ${c.nome}` : ''; };
+  const catObj    = id => cats.find(c => c.id === id);
 
   // Celular perde as colunas Conta e Data — elas descem para a linha de apoio
   const colunas = isMobile ? '36px 1fr auto' : '36px 1fr auto auto auto';
@@ -142,13 +143,13 @@ export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriod
                 <div style={{ width:28, height:28, borderRadius:8, background:bg, color:cor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13 }}>{icon}</div>
                 <div style={{ paddingLeft:10, minWidth:0 }}>
                   <div style={{ fontSize:13, color:T.txt, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.descricao}</div>
-                  <div style={{ fontSize:11, color:T.txt3, marginTop:1 }}>
+                  <div style={{ fontSize:11, color:T.txt3, marginTop:1, display:'flex', alignItems:'center', gap:4, flexWrap:'wrap' }}>
                     {[
-                      isMobile && fmtD(t.data),
-                      isMobile && contaNome(t.conta_id),
-                      catNome(t.categoria_id),
-                      t.conta_destino_id && `→ ${contaNome(t.conta_destino_id)}`,
-                    ].filter(Boolean).join(' · ')}
+                      isMobile && <span key="data">{fmtD(t.data)}</span>,
+                      isMobile && contaNome(t.conta_id) && <span key="conta">{contaNome(t.conta_id)}</span>,
+                      catObj(t.categoria_id) && <span key="cat" style={{ display:'inline-flex', alignItems:'center', gap:4 }}><CategoriaIcon emoji={catObj(t.categoria_id).icone} s={11} />{catObj(t.categoria_id).nome}</span>,
+                      t.conta_destino_id && <span key="dest">→ {contaNome(t.conta_destino_id)}</span>,
+                    ].filter(Boolean).map((node, i) => <React.Fragment key={i}>{i > 0 && <span>·</span>}{node}</React.Fragment>)}
                     {/* Transferência sem destino sai do saldo da origem e não entra em lugar nenhum — precisa ficar visível */}
                     {t.tipo === 'transferencia' && !t.conta_destino_id && (
                       <span style={{ color:T.blue }}>{' · '}destino não informado</span>
@@ -160,8 +161,8 @@ export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriod
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                   <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:cor, whiteSpace:'nowrap' }}>{sinal}{fmt(t.valor)}</span>
                   <div style={{ display:'flex', gap:4 }}>
-                    <button onClick={() => onEdit(t)} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', fontSize:13, padding:'2px 4px' }} title="Editar">✎</button>
-                    <button onClick={() => { if (window.confirm('Excluir esta movimentação?')) onDelete(t.id); }} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', fontSize:13, padding:'2px 4px' }} title="Excluir">✕</button>
+                    <button onClick={() => onEdit(t)} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', padding:'2px 4px', display:'flex' }} title="Editar"><Icon n="edit" s={13} /></button>
+                    <button onClick={() => { if (window.confirm('Excluir esta movimentação?')) onDelete(t.id); }} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', padding:'2px 4px', display:'flex' }} title="Excluir"><Icon n="trash" s={13} /></button>
                   </div>
                 </div>
               </div>

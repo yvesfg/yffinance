@@ -5,6 +5,7 @@ import { useIsMobile } from '../lib/useMedia.js';
 import { sb } from '../supabase.js';
 import { cicloDaCompra, saldoDevedor, statusDaFatura } from '../lib/faturas.js';
 import BankLogo from '../components/BankLogo.jsx';
+import Icon, { CategoriaIcon } from '../components/Icon.jsx';
 import PeriodoSelect from '../components/PeriodoSelect.jsx';
 import ContaSelect from '../components/ContaSelect.jsx';
 
@@ -76,7 +77,7 @@ export default function FaturaDetalhe({ cartao, txs, contas, cats, periodo, setP
   const totalPeriodo = doCartao.reduce((s, t) => s + Number(t.valor), 0);
   const limite = Number(cartao.limite) || 0;
   const emAbertoTotal = (faturas || []).reduce((s, f) => s + saldoDevedor(f), 0);
-  const catNome = id => { const c = cats.find(x => x.id === id); return c ? `${c.icone || ''} ${c.nome}` : ''; };
+  const catObj = id => cats.find(x => x.id === id);
 
   const abrirPagamento = f => {
     setPagandoId(f.id);
@@ -111,7 +112,7 @@ export default function FaturaDetalhe({ cartao, txs, contas, cats, periodo, setP
     <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'DM Sans',sans-serif" }}>
       {/* Cabeçalho */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
-        <button onClick={onVoltar} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: T.radius3, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans',sans-serif" }}>← Cartões</button>
+        <button onClick={onVoltar} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: T.radius3, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans',sans-serif", display: 'flex', alignItems: 'center', gap: 5 }}><Icon n="chevron-left" s={13} /> Cartões</button>
         <BankLogo slug={cartao.banco_slug} url={cartao.logo_url} size={32} />
         <div style={{ flex: 1, minWidth: 120 }}>
           <h2 style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 700, color: T.txt, margin: 0, letterSpacing: -.3 }}>{cartao.nome}</h2>
@@ -122,7 +123,7 @@ export default function FaturaDetalhe({ cartao, txs, contas, cats, periodo, setP
           </div>
         </div>
         <PeriodoSelect value={periodo} onChange={setPeriodo} />
-        <button onClick={() => onEditCartao(cartao)} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, width: 30, height: 30, borderRadius: T.radius3, cursor: 'pointer' }} title="Editar cartão">✎</button>
+        <button onClick={() => onEditCartao(cartao)} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, width: 30, height: 30, borderRadius: T.radius3, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Editar cartão"><Icon n="edit" s={14} /></button>
       </div>
 
       {!cartao.dia_fechamento && (
@@ -208,8 +209,8 @@ export default function FaturaDetalhe({ cartao, txs, contas, cats, periodo, setP
               {pagamentosDaFatura.length > 0 && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8, paddingLeft: 4 }}>
                   {pagamentosDaFatura.map(p => (
-                    <span key={p.id} style={{ fontSize: 11, color: T.green, background: T.greenGlow, borderRadius: 4, padding: '2px 8px' }}>
-                      ✓ {fmt(p.valor)} em {fmtD(p.data)} ({contas.find(c => c.id === p.conta_id)?.nome || 'conta removida'})
+                    <span key={p.id} style={{ fontSize: 11, color: T.green, background: T.greenGlow, borderRadius: 4, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Icon n="check" s={11} /> {fmt(p.valor)} em {fmtD(p.data)} ({contas.find(c => c.id === p.conta_id)?.nome || 'conta removida'})
                     </span>
                   ))}
                 </div>
@@ -218,17 +219,19 @@ export default function FaturaDetalhe({ cartao, txs, contas, cats, periodo, setP
               <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: 'hidden' }}>
                 {itens.map((t, i) => (
                   <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderBottom: i < itens.length - 1 ? `1px solid ${T.border}` : 'none' }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 8, background: T.purpleGlow, color: T.purple, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>▣</div>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: T.purpleGlow, color: T.purple, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon n="credit-card" s={14} /></div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, color: T.txt, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.descricao}</div>
-                      <div style={{ fontSize: 11, color: T.txt3, marginTop: 1 }}>
-                        {[fmtD(t.data), catNome(t.categoria_id), t.parcela_total ? `parcela ${t.parcela_atual}/${t.parcela_total}` : ''].filter(Boolean).join(' · ')}
+                      <div style={{ fontSize: 11, color: T.txt3, marginTop: 1, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                        <span>{fmtD(t.data)}</span>
+                        {catObj(t.categoria_id) && <><span>·</span><CategoriaIcon emoji={catObj(t.categoria_id).icone} s={11} /><span>{catObj(t.categoria_id).nome}</span></>}
+                        {t.parcela_total && <><span>·</span><span>parcela {t.parcela_atual}/{t.parcela_total}</span></>}
                       </div>
                     </div>
                     <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: T.purple, whiteSpace: 'nowrap' }}>{fmt(t.valor)}</span>
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                      <button onClick={() => onEdit(t)} style={{ background: 'transparent', border: 'none', color: T.txt3, cursor: 'pointer', fontSize: 13, padding: '2px 4px' }} title="Editar">✎</button>
-                      <button onClick={() => { if (window.confirm('Excluir este lançamento?')) onDelete(t.id); }} style={{ background: 'transparent', border: 'none', color: T.txt3, cursor: 'pointer', fontSize: 13, padding: '2px 4px' }} title="Excluir">✕</button>
+                      <button onClick={() => onEdit(t)} style={{ background: 'transparent', border: 'none', color: T.txt3, cursor: 'pointer', padding: '2px 4px', display: 'flex' }} title="Editar"><Icon n="edit" s={13} /></button>
+                      <button onClick={() => { if (window.confirm('Excluir este lançamento?')) onDelete(t.id); }} style={{ background: 'transparent', border: 'none', color: T.txt3, cursor: 'pointer', padding: '2px 4px', display: 'flex' }} title="Excluir"><Icon n="trash" s={13} /></button>
                     </div>
                   </div>
                 ))}
