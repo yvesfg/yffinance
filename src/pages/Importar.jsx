@@ -20,6 +20,14 @@ const lerArquivo = f => new Promise((resolve, reject) => {
   reader.readAsText(f, 'utf-8');
 });
 
+// Chave de "mesma compra parcelada", tolerante a como o banco formata o texto
+// entre faturas diferentes (com espaço, sem espaço, truncado — a fatura do
+// Itaú muda a formatação do nome do lojista mês a mês para a MESMA compra).
+// Sem isso, "Vivo Ma Lj V003", "Vivo Ma Lj V003   Imperatriz Ma" e a versão
+// com espaçamento diferente viravam 3 cadeias de parcela em vez de 1.
+const chaveCompra = (descricao, valor, total) =>
+  `${String(descricao || '').replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 12)}|${Number(valor).toFixed(2)}|${total}`;
+
 // "YYYY-MM" → "Mai/2026"
 const rotuloMes = ym => {
   const [a, m] = ym.split('-');
@@ -182,8 +190,19 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
       if (p) detectadas.push({ tx, base: p.base, atual: p.atual, total: p.total });
     }
 
-    if (detectadas.length > 0) {
-      setParcelasDetect(detectadas);
+    // Mesma compra pode aparecer várias vezes no lote (uma por mês de fatura,
+    // cada uma numa parcela diferente) — fica só a ocorrência de MENOR parcela
+    // atual, que é a âncora correta para projetar as parcelas seguintes.
+    const porCompra = new Map();
+    for (const d of detectadas) {
+      const k = chaveCompra(d.tx.descricao, d.tx.valor, d.total);
+      const existente = porCompra.get(k);
+      if (!existente || d.atual < existente.atual) porCompra.set(k, d);
+    }
+    const detectadasUnicas = [...porCompra.values()];
+
+    if (detectadasUnicas.length > 0) {
+      setParcelasDetect(detectadasUnicas);
       setModalParcelas(true);
     } else {
       await executarImportacao([], []);
@@ -231,11 +250,16 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         ? { ...tx, tipo: 'cartao', cartao_id: cartaoId, conta_id: null, perfil, status: 'pago' }
         : { ...tx, conta_id: contaId, perfil, status: 'pago' });
 
-      // Mapa para agrupar parcelas confirmadas por descrição original
-      const parcelasMap = {};
+      // Mapa para agrupar parcelas confirmadas por compra (chaveCompra, não a
+      // descrição exata — variantes de formatação da mesma compra em faturas
+      // de meses diferentes têm que cair na mesma entrada).
+      const parcelasMap = new Map();
       for (const p of parcelasConfirmadas) {
-        parcelasMap[p.tx.descricao] = p;
+        parcelasMap.set(chaveCompra(p.tx.descricao, p.tx.valor, p.total), p);
       }
+      // Uma cadeia de parcelas só pode ser gerada UMA VEZ por compra, mesmo que
+      // ela apareça várias vezes no lote (uma ocorrência por mês de fatura).
+      const cadeiasGeradas = new Set();
 
       const txsParaSalvar = [];
       const patches   = [];   // vínculos em linhas que já estão no banco
@@ -348,13 +372,25 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         }
 
         // --- PARCELAS ---
-        const pInfo = parcelasMap[tx.descricao];
+        // Recalcula a própria detecção desta linha (mesma lógica da etapa 1)
+        // só para achar a chave de compra — quem manda em atual/total/data é
+        // sempre a âncora guardada no parcelasMap, nunca esta ocorrência.
+        const detectLocal = parcelaDaTx(tx);
+        const chaveLocal = detectLocal ? chaveCompra(tx.descricao, tx.valor, detectLocal.total) : null;
+        const pInfo = chaveLocal ? parcelasMap.get(chaveLocal) : undefined;
         if (pInfo) {
+          if (cadeiasGeradas.has(chaveLocal)) {
+            // Mesma compra, outra ocorrência no lote (outro mês de fatura) —
+            // já coberta pela cadeia gerada a partir da âncora. Sem esta
+            // guarda, cada ocorrência regenerava a cadeia inteira e duplicava.
+            duplic++; continue;
+          }
+          cadeiasGeradas.add(chaveLocal);
           const { base, atual, total } = pInfo;
           const grupoId = uuid();
 
           const futuras = gerarParcelas(
-            { ...noDestino(tx), descricao_base: base, tipo: noCartao ? 'cartao' : 'despesa' },
+            { ...noDestino(pInfo.tx), descricao_base: base, tipo: noCartao ? 'cartao' : 'despesa' },
             atual,
             total,
             grupoId
