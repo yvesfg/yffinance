@@ -673,7 +673,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         <button
           onClick={handleImportar}
           disabled={!destinoId || !txsParsed.length || importando || !!lendoIA}
-          style={{ width: '100%', padding: '11px', background: (!destinoId || !txsParsed.length || importando || lendoIA) ? T.bg3 : T.green, color: (!destinoId || !txsParsed.length || importando || lendoIA) ? T.txt3 : '#000', border: 'none', borderRadius: T.radius2, cursor: (!destinoId || !txsParsed.length || importando || lendoIA) ? 'not-allowed' : 'pointer', fontFamily: "'Sora',sans-serif", fontSize: 14, fontWeight: 600 }}
+          style={{ width: '100%', padding: '11px', background: (!destinoId || !txsParsed.length || importando || lendoIA) ? T.bg3 : T.gold, color: (!destinoId || !txsParsed.length || importando || lendoIA) ? T.txt3 : '#000', border: 'none', borderRadius: T.radius2, cursor: (!destinoId || !txsParsed.length || importando || lendoIA) ? 'not-allowed' : 'pointer', fontFamily: "'Sora',sans-serif", fontSize: 14, fontWeight: 600 }}
         >
           {importando ? 'Importando...' : 'Importar'}
         </button>

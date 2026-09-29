@@ -76,7 +76,7 @@ export default function ContaDetalhe({ conta, txs, contas, cats, periodo, setPer
       </div>
 
       {/* Números do período */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginBottom: 16 }}>
+      <div className="yf-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginBottom: 16 }}>
         <Card label="Saldo inicial" valor={saldos ? fmt(saldos.inicial) : '—'} cor={T.txt2} sub="antes do período" />
         <Card label="Entradas"      valor={fmt(entradas)} cor={T.green} />
         <Card label="Saídas"        valor={fmt(saidas + transfSaida)} cor={T.red} sub={transfSaida > 0 ? `inclui ${fmt(transfSaida)} em transferências` : undefined} />

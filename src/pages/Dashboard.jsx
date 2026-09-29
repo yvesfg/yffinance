@@ -32,13 +32,13 @@ function Sparkline({ data }) {
 
 function StatCard({ label, value, color, sub, accent, trend, deltaPct, deltaLabel }) {
   return (
-    <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 18, position: 'relative', overflow: 'hidden' }}>
+    <div className="yf-stat" style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 18, position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${accent},transparent)` }} />
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
         <div style={{ fontSize: 10, color: T.txt3, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>{label}</div>
         {trend && <Sparkline data={trend} />}
       </div>
-      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 20, fontWeight: 500, color }}>{value}</div>
+      <div className="yf-stat__valor" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 20, fontWeight: 500, color }}>{value}</div>
       <div style={{ fontSize: 11, color: T.txt3, marginTop: 6 }}>{sub}</div>
       {deltaPct != null && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", marginTop: 6, color: deltaPct >= 0 ? T.green : T.red }}>
@@ -149,9 +149,9 @@ export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesA
   return (
     <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'Sora', sans-serif" }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div className="yf-page-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <h2 style={{ fontFamily: "'Sora', sans-serif", fontSize: 24, fontWeight: 700, color: T.txt, margin: 0, letterSpacing: -.5 }}>Dashboard</h2>
+          <h2 className="yf-page-head__titulo" style={{ fontFamily: "'Sora', sans-serif", fontSize: 24, fontWeight: 700, color: T.txt, margin: 0, letterSpacing: -.5 }}>Dashboard</h2>
           <p style={{ fontSize: 12, color: T.txt3, marginTop: 3 }}>{perfil === 'pessoal' ? 'Finanças pessoais' : 'YFGroup Transportes'} · {rotuloPeriodo(periodo)}</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -163,7 +163,7 @@ export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesA
       <AvisoPeriodoVazio perfil={perfil} periodo={periodo} setPeriodo={setPeriodo} vazio={txs.length === 0} />
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 14, marginBottom: 14 }}>
+      <div className="yf-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 14, marginBottom: 14 }}>
         <StatCard label="Entradas"        value={fmt(rec)}        color={T.green}  accent={T.green}  sub={`${txs.filter(t=>t.tipo==='receita').length} receitas`} trend={entradasTrend} deltaPct={pctDelta(entradasTrend)} />
         <StatCard label="Saídas"          value={fmt(saidas)}     color={T.red}    accent={T.red}    sub={`despesas ${fmt(desp)} · cartão ${fmt(cart)}`} trend={saidasTrend} deltaPct={pctDelta(saidasTrend)} />
         <StatCard label="Resultado do mês" value={(resultado>=0?'+':'')+fmt(resultado)} color={resultado>=0?T.green:T.red} accent={resultado>=0?T.green:T.red} sub={resultado>=0?'sobra no mês':'déficit no mês'} trend={resultadoTrend} deltaPct={pctDelta(resultadoTrend)} />

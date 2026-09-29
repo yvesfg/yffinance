@@ -70,7 +70,7 @@ export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriod
       <AvisoPeriodoVazio perfil={perfil} periodo={periodo} setPeriodo={setPeriodo} vazio={txs.length === 0} />
 
       {/* Resumo */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:18 }}>
+      <div className="yf-kpis" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:18 }}>
         {[
           { l:'Entradas', v:totRec, c:T.green },
           { l:'Saídas', v:totDesp, c:T.red },
