@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Modal from '../components/Modal.jsx';
 import { T } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { useModalKeys } from '../lib/useModalKeys.js';
@@ -55,19 +56,7 @@ export default function ModalParcelas({ open, parcelas = [], onConfirm, onClose 
   const qtdIgnoradas = items.length - emParcela.length;
 
   return (
-    <div onClick={onClose} style={{ display:'flex', position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:1100, backdropFilter:'blur(6px)', justifyContent:'center', alignItems:'center', padding:16 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background:T.bg2, border:`1px solid ${T.border2}`, borderRadius:18, padding:24, width:560, maxWidth:'95vw', maxHeight:'85vh', display:'flex', flexDirection:'column', gap:0 }}>
-
-        {/* Header */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16 }}>
-          <div>
-            <h3 style={{ fontFamily:"'Sora',sans-serif", fontSize:18, fontWeight:700, color:T.txt, margin:0 }}>Parcelas detectadas</h3>
-            <p style={{ fontSize:12, color:T.txt3, margin:'4px 0 0' }}>
-              Confirme o número de cada parcela, ou diga que a detecção errou.
-            </p>
-          </div>
-          <button onClick={onClose} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', fontSize:18, lineHeight:1 }}>✕</button>
-        </div>
+    <Modal titulo="Parcelas detectadas" sub="Confirme o número de cada parcela, ou diga que a detecção errou." onClose={onClose} largura={560} zIndex={1100} coluna>
 
         {/* Lista */}
         <div style={{ overflowY:'auto', flex:1, marginBottom:16 }}>
@@ -149,7 +138,6 @@ export default function ModalParcelas({ open, parcelas = [], onConfirm, onClose 
             Confirmar e importar →
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

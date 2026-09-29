@@ -35,3 +35,41 @@ body {
   /* Alvo de toque decente nos ícones de editar/excluir das listas. */
   button { -webkit-tap-highlight-color: transparent; }
 }
+
+/* Modal único (Cabine): mesmo desenho do co-modal do Controle Operacional e do
+   .f-modal do Frota Pro. O overlay rola quando a caixa passa da tela; o
+   margin:auto mantém a caixa centrada sem cortar o topo; altura em dvh para o
+   rodapé não sumir atrás da barra do navegador no celular. */
+.yf-modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.72);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px 16px; overflow-y: auto;
+}
+.yf-modal {
+  width: 100%; margin: auto;
+  background: #14161a; border: 1px solid #262a31; border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.5);
+  padding: 22px 24px;
+  max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  animation: yf-modal-in .22s cubic-bezier(.34, 1.1, .64, 1);
+}
+.yf-modal--coluna { display: flex; flex-direction: column; overflow: hidden; }
+@keyframes yf-modal-in { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .yf-modal { animation: none; } }
+.yf-modal__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
+.yf-modal__title { font-family: 'Sora', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: -.01em; line-height: 1.3; color: #eceae4; margin: 0; }
+.yf-modal__sub { font-size: 12px; color: #8d929c; margin: 4px 0 0; }
+.yf-modal__close {
+  flex-shrink: 0; width: 32px; height: 32px; margin: -6px -8px 0 0;
+  display: grid; place-items: center; border-radius: 9px;
+  background: transparent; border: none; color: #8d929c; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.yf-modal__close:hover { background: #1b1e23; color: #eceae4; }
+.yf-modal__close:focus-visible { outline: 2px solid #f2c14e; outline-offset: 2px; }
+@media (max-width: 767px) {
+  .yf-modal-overlay { align-items: flex-end; padding: 0; }
+  .yf-modal { max-width: 100% !important; margin: auto 0 0; border-radius: 16px 16px 0 0; padding: 18px 16px; max-height: 88dvh; }
+}

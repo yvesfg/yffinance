@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Modal from '../components/Modal.jsx';
 import { T, BANCOS } from '../constants.js';
 import { useModalKeys } from '../lib/useModalKeys.js';
 import ColorField from '../components/ColorField.jsx';
@@ -51,12 +52,7 @@ export default function ModalCartao({ open, onClose, onSave, contas, onCreateCon
   if (!open) return null;
 
   return (
-    <div onClick={onClose} style={{ display:'flex', position:'fixed', inset:0, background:'rgba(0,0,0,.65)', zIndex:1000, backdropFilter:'blur(6px)', justifyContent:'center', alignItems:'center' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background:T.bg2, border:`1px solid ${T.border2}`, borderRadius:18, padding:26, width:420, maxWidth:'95vw', maxHeight:'90vh', overflowY:'auto' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <h3 style={{ fontFamily:"'Sora',sans-serif", fontSize:19, fontWeight:700, color:T.txt, margin:0 }}>{editData ? 'Editar Cartão' : 'Novo Cartão'}</h3>
-          <button onClick={onClose} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', fontSize:18 }}>✕</button>
-        </div>
+    <Modal titulo={editData ? 'Editar Cartão' : 'Novo Cartão'} onClose={onClose} largura={420}>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
           <div style={{ gridColumn:'1/-1' }}>{fg('Nome', <input type="text" style={inp} value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Inter Gold" autoFocus />)}</div>
           {fg('Banco', <select style={inp} value={banco} onChange={e => setBanco(e.target.value)}>{Object.entries(BANCOS).map(([k,v]) => <option key={k} value={k}>{v.nome}</option>)}</select>)}
@@ -77,7 +73,6 @@ export default function ModalCartao({ open, onClose, onSave, contas, onCreateCon
           <button onClick={onClose} style={{ padding:'9px 18px', background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, borderRadius:T.radius2, cursor:'pointer', fontFamily:"'Sora',sans-serif", fontSize:13 }}>Cancelar</button>
           <button onClick={handleSave} disabled={busy || !nome.trim()} style={{ padding:'9px 18px', background: (busy || !nome.trim()) ? T.bg3 : T.green, color: (busy || !nome.trim()) ? T.txt3 : '#000', borderRadius:T.radius2, border:'none', cursor: (busy || !nome.trim()) ? 'not-allowed' : 'pointer', fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:600 }}>{busy ? 'Salvando...' : 'Salvar'}</button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

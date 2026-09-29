@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Modal from '../components/Modal.jsx';
 import { T } from '../constants.js';
 import { useModalKeys } from '../lib/useModalKeys.js';
 import ContaSelect from '../components/ContaSelect.jsx';
@@ -79,12 +80,7 @@ export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats
   if (!open) return null;
 
   return (
-    <div onClick={onClose} style={{ display:'flex', position:'fixed', inset:0, background:'rgba(0,0,0,.65)', zIndex:1000, backdropFilter:'blur(6px)', justifyContent:'center', alignItems:'center' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: T.bg2, border: `1px solid ${T.border2}`, borderRadius: 18, padding: 26, width: 560, maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 20 }}>
-          <h3 style={{ fontFamily:"'Sora',sans-serif", fontSize:19, fontWeight:700, color:T.txt, margin:0 }}>{editData ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>
-          <button onClick={onClose} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', fontSize:18 }}>✕</button>
-        </div>
+    <Modal titulo={editData ? 'Editar Lançamento' : 'Novo Lançamento'} onClose={onClose} largura={560}>
 
         {/* Tipo toggle */}
         <div style={{ display:'flex', gap:3, background:T.bg3, padding:3, borderRadius:T.radius2, marginBottom:16 }}>
@@ -114,7 +110,6 @@ export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats
           <button onClick={onClose} style={{ padding:'9px 18px', background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, borderRadius:T.radius2, cursor:'pointer', fontFamily:"'Sora',sans-serif", fontSize:13 }}>Cancelar</button>
           <button onClick={handleSave} disabled={busy} style={{ padding:'9px 18px', background: busy ? T.bg3 : T.green, color: busy ? T.txt3 : '#000', borderRadius:T.radius2, border:'none', cursor: busy ? 'not-allowed' : 'pointer', fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:600 }}>{busy ? 'Salvando...' : 'Salvar'}</button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
