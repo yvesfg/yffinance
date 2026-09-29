@@ -14,7 +14,7 @@ export default function RegimeToggle({ value, onChange }) {
         <button key={r.v} onClick={() => onChange(r.v)} title={r.ajuda} style={{
           padding: '5px 10px', border: value === r.v ? `1px solid ${T.border3}` : '1px solid transparent',
           background: value === r.v ? T.bg4 : 'transparent', color: value === r.v ? T.txt : T.txt2,
-          borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans',sans-serif",
+          borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: "'Sora',sans-serif",
         }}>{r.l}</button>
       ))}
     </div>

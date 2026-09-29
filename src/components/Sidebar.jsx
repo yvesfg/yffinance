@@ -75,12 +75,12 @@ export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOp
             justifyContent: encolhida ? 'center' : 'space-between',
           }}>
             {!encolhida && (
-              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 16, fontWeight: 800, letterSpacing: '-.5px', color: T.txt }}>
+              <div style={{ fontFamily: "'Sora', sans-serif", fontSize: 16, fontWeight: 800, letterSpacing: '-.5px', color: T.txt }}>
                 YF<span style={{ color: T.green }}>Finance</span>
               </div>
             )}
             {encolhida && (
-              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 15, fontWeight: 800, color: T.green, lineHeight: 1 }}>YF</div>
+              <div style={{ fontFamily: "'Sora', sans-serif", fontSize: 15, fontWeight: 800, color: T.green, lineHeight: 1 }}>YF</div>
             )}
             {!mobileOpen && (
               <button onClick={() => handleCollapse(!collapsed)} title={collapsed ? 'Expandir menu' : 'Recolher menu'} style={{
@@ -103,7 +103,7 @@ export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOp
               marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6,
               background: T.bg3, border: `1px solid ${T.border2}`,
               borderRadius: 99, padding: '4px 10px', fontSize: 11, color: T.txt2,
-              cursor: 'pointer', transition: 'all .15s', fontFamily: "'DM Sans', sans-serif",
+              cursor: 'pointer', transition: 'all .15s', fontFamily: "'Sora', sans-serif",
               width: '100%', justifyContent: 'space-between',
             }}>
               <span>{perfil === 'pessoal' ? '👤 Pessoal' : '🏢 Empresa'}</span>
@@ -125,10 +125,10 @@ export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOp
                 gap: encolhida ? 0 : 10,
                 padding: encolhida ? '9px 0' : '9px 16px',
                 justifyContent: encolhida ? 'center' : 'flex-start',
-                width: '100%', background: active ? `rgba(5,212,155,.06)` : 'transparent',
+                width: '100%', background: active ? `rgba(79,191,139,.06)` : 'transparent',
                 border: 'none', borderLeft: `2px solid ${active ? T.green : 'transparent'}`,
                 color: active ? T.green : T.txt2, cursor: 'pointer',
-                fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif",
+                fontSize: 13, fontWeight: 500, fontFamily: "'Sora', sans-serif",
                 transition: 'all .12s', margin: '1px 0',
               }}>
                 <Icon color={active ? T.green : T.txt2} size={16}>{item.icon}</Icon>
@@ -150,7 +150,7 @@ export default function Sidebar({ pagina, setPagina, perfil, setPerfil, mobileOp
               justifyContent: encolhida ? 'center' : 'flex-start',
               width: '100%', background: 'transparent', border: `1px solid ${T.border2}`,
               borderRadius: T.radius3, color: T.txt3, cursor: 'pointer',
-              fontSize: 12, fontFamily: "'DM Sans', sans-serif", transition: 'all .12s',
+              fontSize: 12, fontFamily: "'Sora', sans-serif", transition: 'all .12s',
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = T.red; e.currentTarget.style.color = T.red; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = T.border2; e.currentTarget.style.color = T.txt3; }}

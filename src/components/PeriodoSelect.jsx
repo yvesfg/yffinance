@@ -10,7 +10,7 @@ const btn = {
 const inp = {
   background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt,
   padding: '6px 8px', borderRadius: T.radius3, fontSize: 12, outline: 'none',
-  fontFamily: "'DM Sans',sans-serif", width: '100%', boxSizing: 'border-box',
+  fontFamily: "'Sora',sans-serif", width: '100%', boxSizing: 'border-box',
 };
 
 /**
@@ -32,7 +32,7 @@ export default function PeriodoSelect({ value, onChange, compacto = false }) {
 
       <button
         onClick={() => setAberto(a => !a)}
-        style={{ ...btn, width: 'auto', padding: '0 12px', gap: 6, fontFamily: "'JetBrains Mono',monospace",
+        style={{ ...btn, width: 'auto', padding: '0 12px', gap: 6, fontFamily: "'IBM Plex Mono',monospace",
                  fontSize: 12, color: T.txt, minWidth: compacto ? 0 : 150, justifyContent: 'center' }}
         title="Escolher período"
       >
@@ -77,7 +77,7 @@ export default function PeriodoSelect({ value, onChange, compacto = false }) {
             </div>
             <button
               onClick={() => de && ate && escolher(periodoLivre(de, ate))}
-              style={{ ...btn, width: '100%', marginTop: 8, background: T.green, color: '#000', border: 'none', fontWeight: 600, fontSize: 12 }}
+              style={{ ...btn, width: '100%', marginTop: 8, background: T.gold, color: '#000', border: 'none', fontWeight: 600, fontSize: 12 }}
             >Aplicar intervalo</button>
           </div>
         </>

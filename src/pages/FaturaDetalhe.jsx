@@ -18,7 +18,7 @@ const STATUS_INFO = {
   paga:    { label: 'Paga',       cor: T.green },
 };
 
-const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 10px', borderRadius: T.radius3, fontFamily: "'DM Sans',sans-serif", fontSize: 12, outline: 'none', boxSizing: 'border-box' };
+const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 10px', borderRadius: T.radius3, fontFamily: "'Sora',sans-serif", fontSize: 12, outline: 'none', boxSizing: 'border-box' };
 
 /**
  * Fatura do cartão no período — lê as cf_faturas de verdade (criadas ao
@@ -109,13 +109,13 @@ export default function FaturaDetalhe({ cartao, txs, contas, cats, periodo, setP
   };
 
   return (
-    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'DM Sans',sans-serif" }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'Sora',sans-serif" }}>
       {/* Cabeçalho */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
-        <button onClick={onVoltar} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: T.radius3, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans',sans-serif", display: 'flex', alignItems: 'center', gap: 5 }}><Icon n="chevron-left" s={13} /> Cartões</button>
+        <button onClick={onVoltar} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: T.radius3, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontFamily: "'Sora',sans-serif", display: 'flex', alignItems: 'center', gap: 5 }}><Icon n="chevron-left" s={13} /> Cartões</button>
         <BankLogo slug={cartao.banco_slug} url={cartao.logo_url} size={32} />
         <div style={{ flex: 1, minWidth: 120 }}>
-          <h2 style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 700, color: T.txt, margin: 0, letterSpacing: -.3 }}>{cartao.nome}</h2>
+          <h2 style={{ fontFamily: "'Sora',sans-serif", fontSize: 20, fontWeight: 700, color: T.txt, margin: 0, letterSpacing: -.3 }}>{cartao.nome}</h2>
           <div style={{ fontSize: 11, color: T.txt3 }}>
             {cartao.bandeira} · {BANCOS[cartao.banco_slug]?.nome || cartao.banco_slug}
             {cartao.dia_fechamento ? ` · fecha dia ${cartao.dia_fechamento}` : ''}
@@ -136,18 +136,18 @@ export default function FaturaDetalhe({ cartao, txs, contas, cats, periodo, setP
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginBottom: 16 }}>
         <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: '14px 16px' }}>
           <div style={{ fontSize: 10, color: T.txt3, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>Total no período</div>
-          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 18, fontWeight: 500, color: T.purple }}>{fmt(totalPeriodo)}</div>
+          <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 18, fontWeight: 500, color: T.purple }}>{fmt(totalPeriodo)}</div>
           <div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{doCartao.length} lançamentos</div>
         </div>
         <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: '14px 16px' }}>
           <div style={{ fontSize: 10, color: T.txt3, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>Em aberto</div>
-          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 18, fontWeight: 500, color: emAbertoTotal > 0 ? T.red : T.green }}>{fmt(emAbertoTotal)}</div>
+          <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 18, fontWeight: 500, color: emAbertoTotal > 0 ? T.red : T.green }}>{fmt(emAbertoTotal)}</div>
           <div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>soma das faturas não quitadas</div>
         </div>
         {limite > 0 && (
           <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: '14px 16px' }}>
             <div style={{ fontSize: 10, color: T.txt3, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>Limite</div>
-            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 18, fontWeight: 500, color: T.txt }}>{fmt(limite)}</div>
+            <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 18, fontWeight: 500, color: T.txt }}>{fmt(limite)}</div>
             <div style={{ height: 4, background: T.bg3, borderRadius: 99, overflow: 'hidden', marginTop: 8 }}>
               <div style={{ height: '100%', width: `${Math.min(100, Math.round(emAbertoTotal / limite * 100))}%`, background: emAbertoTotal / limite > .8 ? T.red : T.purple, borderRadius: 99 }} />
             </div>
@@ -172,11 +172,11 @@ export default function FaturaDetalhe({ cartao, txs, contas, cats, periodo, setP
             <div key={f.id || f.mes_referencia} style={{ marginBottom: 14 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6, paddingLeft: 4, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: T.txt }}>Fatura de {rotuloCiclo(f.mes_referencia)}</span>
-                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: T.purple }}>{fmt(Number(f.valor_total) || 0)}</span>
+                <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 13, color: T.purple }}>{fmt(Number(f.valor_total) || 0)}</span>
                 <span style={{ fontSize: 10, fontWeight: 600, color: info.cor, background: `${info.cor}1a`, borderRadius: 4, padding: '1px 6px' }}>{info.label}</span>
                 {f.data_fechamento && <span style={{ fontSize: 11, color: T.txt3 }}>fecha {fmtD(f.data_fechamento)}{f.data_vencimento ? ` · vence ${fmtD(f.data_vencimento)}` : ''}</span>}
                 {f.id && devedor > 0.009 && (
-                  <button onClick={() => abrirPagamento(f)} style={{ marginLeft: 'auto', background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: T.radius3, padding: '4px 10px', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans',sans-serif" }}>
+                  <button onClick={() => abrirPagamento(f)} style={{ marginLeft: 'auto', background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: T.radius3, padding: '4px 10px', cursor: 'pointer', fontSize: 11, fontFamily: "'Sora',sans-serif" }}>
                     Registrar pagamento
                   </button>
                 )}
@@ -197,7 +197,7 @@ export default function FaturaDetalhe({ cartao, txs, contas, cats, periodo, setP
                     <div style={{ fontSize: 10, color: T.txt3, marginBottom: 3 }}>Data</div>
                     <input type="date" style={inp} value={pagData} onChange={e => setPagData(e.target.value)} />
                   </div>
-                  <button disabled={salvandoPag} onClick={() => registrarPagamento(f)} style={{ background: T.green, color: '#000', border: 'none', borderRadius: T.radius3, padding: '8px 14px', cursor: salvandoPag ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans',sans-serif" }}>
+                  <button disabled={salvandoPag} onClick={() => registrarPagamento(f)} style={{ background: T.gold, color: '#000', border: 'none', borderRadius: T.radius3, padding: '8px 14px', cursor: salvandoPag ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'Sora',sans-serif" }}>
                     {salvandoPag ? 'Salvando…' : 'Confirmar'}
                   </button>
                   <button onClick={() => setPagandoId(null)} style={{ background: 'transparent', border: 'none', color: T.txt3, cursor: 'pointer', fontSize: 12 }}>Cancelar</button>
@@ -228,7 +228,7 @@ export default function FaturaDetalhe({ cartao, txs, contas, cats, periodo, setP
                         {t.parcela_total && <><span>·</span><span>parcela {t.parcela_atual}/{t.parcela_total}</span></>}
                       </div>
                     </div>
-                    <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: T.purple, whiteSpace: 'nowrap' }}>{fmt(t.valor)}</span>
+                    <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 13, color: T.purple, whiteSpace: 'nowrap' }}>{fmt(t.valor)}</span>
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                       <button onClick={() => onEdit(t)} style={{ background: 'transparent', border: 'none', color: T.txt3, cursor: 'pointer', padding: '2px 4px', display: 'flex' }} title="Editar"><Icon n="edit" s={13} /></button>
                       <button onClick={() => { if (window.confirm('Excluir este lançamento?')) onDelete(t.id); }} style={{ background: 'transparent', border: 'none', color: T.txt3, cursor: 'pointer', padding: '2px 4px', display: 'flex' }} title="Excluir"><Icon n="trash" s={13} /></button>

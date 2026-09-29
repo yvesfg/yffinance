@@ -45,11 +45,11 @@ export default function AvisoPeriodoVazio({ perfil, periodo, setPeriodo, vazio }
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
         <button onClick={() => setPeriodo(mesDoUltimo)}
-          style={{ background: T.green, color: '#000', border: 'none', borderRadius: T.radius3, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans',sans-serif" }}>
+          style={{ background: T.gold, color: '#000', border: 'none', borderRadius: T.radius3, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'Sora',sans-serif" }}>
           Ir para {rotuloPeriodo(mesDoUltimo)}
         </button>
         <button onClick={() => setPeriodo(periodoLivre(faixa.primeira, faixa.ultima))}
-          style={{ background: T.bg3, color: T.txt2, border: `1px solid ${T.border2}`, borderRadius: T.radius3, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans',sans-serif" }}>
+          style={{ background: T.bg3, color: T.txt2, border: `1px solid ${T.border2}`, borderRadius: T.radius3, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontFamily: "'Sora',sans-serif" }}>
           Ver tudo que existe
         </button>
       </div>

@@ -3,7 +3,7 @@ import { T } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import { useModalKeys } from '../lib/useModalKeys.js';
 
-const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '7px 10px', borderRadius: T.radius2, fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box' };
+const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '7px 10px', borderRadius: T.radius2, fontFamily: "'Sora',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box' };
 
 const OPCOES = [
   { v: 'parcela', l: 'É parcela' },
@@ -61,7 +61,7 @@ export default function ModalParcelas({ open, parcelas = [], onConfirm, onClose 
         {/* Header */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16 }}>
           <div>
-            <h3 style={{ fontFamily:"'Syne',sans-serif", fontSize:18, fontWeight:700, color:T.txt, margin:0 }}>Parcelas detectadas</h3>
+            <h3 style={{ fontFamily:"'Sora',sans-serif", fontSize:18, fontWeight:700, color:T.txt, margin:0 }}>Parcelas detectadas</h3>
             <p style={{ fontSize:12, color:T.txt3, margin:'4px 0 0' }}>
               Confirme o número de cada parcela, ou diga que a detecção errou.
             </p>
@@ -80,7 +80,7 @@ export default function ModalParcelas({ open, parcelas = [], onConfirm, onClose 
                     <div style={{ fontSize:13, color:T.txt, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{it.base}</div>
                     <div style={{ fontSize:11, color:T.txt3, marginTop:2, display:'flex', gap:8, flexWrap:'wrap' }}>
                       <span>{fmtD(it.tx.data)}</span>
-                      <span style={{ fontFamily:"'JetBrains Mono',monospace", color: it.status === 'estorno' ? T.green : T.red }}>
+                      <span style={{ fontFamily:"'IBM Plex Mono',monospace", color: it.status === 'estorno' ? T.green : T.red }}>
                         {it.status === 'estorno' ? '+' : '-'}{fmt(it.tx.valor)}
                       </span>
                       {it.status === 'parcela' && it.atual < it.total && (
@@ -122,7 +122,7 @@ export default function ModalParcelas({ open, parcelas = [], onConfirm, onClose 
                     <button key={op.v} onClick={() => setStatus(i, op.v)} style={{
                       padding:'4px 10px', border: it.status === op.v ? `1px solid ${T.border3}` : '1px solid transparent',
                       background: it.status === op.v ? T.bg4 : 'transparent', color: it.status === op.v ? T.txt : T.txt3,
-                      borderRadius:6, cursor:'pointer', fontSize:11, fontFamily:"'DM Sans',sans-serif",
+                      borderRadius:6, cursor:'pointer', fontSize:11, fontFamily:"'Sora',sans-serif",
                     }}>{op.l}</button>
                   ))}
                 </div>
@@ -142,10 +142,10 @@ export default function ModalParcelas({ open, parcelas = [], onConfirm, onClose 
 
         {/* Ações */}
         <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
-          <button onClick={onClose} style={{ padding:'9px 18px', background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, borderRadius:T.radius2, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13 }}>
+          <button onClick={onClose} style={{ padding:'9px 18px', background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, borderRadius:T.radius2, cursor:'pointer', fontFamily:"'Sora',sans-serif", fontSize:13 }}>
             Cancelar
           </button>
-          <button onClick={confirmar} style={{ padding:'9px 20px', background:T.green, color:'#000', borderRadius:T.radius2, border:'none', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600 }}>
+          <button onClick={confirmar} style={{ padding:'9px 20px', background:T.gold, color:'#000', borderRadius:T.radius2, border:'none', cursor:'pointer', fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:600 }}>
             Confirmar e importar →
           </button>
         </div>

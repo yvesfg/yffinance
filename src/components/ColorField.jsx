@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { T } from '../constants.js';
 
 const SWATCHES = [
-  '#05d49b', '#4d8eff', '#9b6dff', '#f7c645', '#f04f6e', '#ff7a00',
-  '#00b1ea', '#21c25e', '#8a05be', '#003087', '#cc092f', '#7b85a0',
+  '#4fbf8b', '#4d8eff', '#9b6dff', '#f2c14e', '#ef6a5b', '#ff7a00',
+  '#00b1ea', '#21c25e', '#8a05be', '#003087', '#cc092f', '#8d929c',
 ];
 
 /**

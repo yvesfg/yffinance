@@ -6,9 +6,9 @@ export default function Splash({ onSelect }) {
     <div style={{
       position: 'fixed', inset: 0, background: T.bg, zIndex: 9000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      flexDirection: 'column', gap: 0, fontFamily: "'DM Sans', sans-serif",
+      flexDirection: 'column', gap: 0, fontFamily: "'Sora', sans-serif",
     }}>
-      <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 48, fontWeight: 800, letterSpacing: -3, marginBottom: 8 }}>
+      <div style={{ fontFamily: "'Sora', sans-serif", fontSize: 48, fontWeight: 800, letterSpacing: -3, marginBottom: 8 }}>
         <span style={{ color: T.txt }}>YF</span><span style={{ color: T.green }}>Finance</span>
       </div>
       <div style={{ fontSize: 12, color: T.txt3, letterSpacing: 4, textTransform: 'uppercase', marginBottom: 56 }}>
@@ -28,7 +28,7 @@ export default function Splash({ onSelect }) {
           onMouseLeave={e => { e.currentTarget.style.borderColor = T.border2; e.currentTarget.style.transform = 'none'; }}
           >
             <div style={{ fontSize: 36, marginBottom: 14 }}>{icon}</div>
-            <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: 17, fontWeight: 700, color: T.txt, margin: '0 0 6px' }}>{title}</h3>
+            <h3 style={{ fontFamily: "'Sora', sans-serif", fontSize: 17, fontWeight: 700, color: T.txt, margin: '0 0 6px' }}>{title}</h3>
             <p style={{ fontSize: 12, color: T.txt2, lineHeight: 1.5, margin: 0 }}>{desc}</p>
           </div>
         ))}

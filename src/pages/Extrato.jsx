@@ -8,7 +8,7 @@ import { totais } from '../lib/regime.js';
 import RegimeToggle from '../components/RegimeToggle.jsx';
 import Icon, { CategoriaIcon } from '../components/Icon.jsx';
 
-const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box' };
+const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 12px', borderRadius: T.radius2, fontFamily: "'Sora',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box' };
 
 export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriodo, perfil, onEdit, onDelete }) {
   const isMobile = useIsMobile();
@@ -57,10 +57,10 @@ export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriod
   ];
 
   return (
-    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'DM Sans',sans-serif" }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'Sora',sans-serif" }}>
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
-        <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Extrato</h2>
+        <h2 style={{ fontFamily:"'Sora',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Extrato</h2>
         <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
           <RegimeToggle value={regime} onChange={mudarRegime} />
           <PeriodoSelect value={periodo} onChange={setPeriodo} />
@@ -78,7 +78,7 @@ export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriod
         ].map(({ l, v, c }) => (
           <div key={l} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:T.radius, padding:'14px 16px' }}>
             <div style={{ fontSize:10, color:T.txt3, textTransform:'uppercase', letterSpacing:1, fontWeight:600, marginBottom:6 }}>{l}</div>
-            <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:18, fontWeight:500, color:c }}>{fmt(v)}</div>
+            <div style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:18, fontWeight:500, color:c }}>{fmt(v)}</div>
           </div>
         ))}
       </div>
@@ -91,7 +91,7 @@ export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriod
             <button key={t.v} onClick={() => setFiltTipo(t.v)} style={{
               padding:'5px 10px', whiteSpace:'nowrap', flexShrink:0, border: filtTipo===t.v?`1px solid ${T.border3}`:'1px solid transparent',
               background: filtTipo===t.v?T.bg4:'transparent', color: filtTipo===t.v?T.txt:T.txt2,
-              borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:"'DM Sans',sans-serif",
+              borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:"'Sora',sans-serif",
             }}>{t.l}</button>
           ))}
         </div>
@@ -157,9 +157,9 @@ export default function Extrato({ txs, contas, cats, cartoes, periodo, setPeriod
                   </div>
                 </div>
                 {!isMobile && <div style={{ fontSize:12, color:T.txt3, paddingRight:14, whiteSpace:'nowrap' }}>{contaNome(t.conta_id)}</div>}
-                {!isMobile && <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12, color:T.txt3, paddingRight:14, whiteSpace:'nowrap' }}>{fmtD(t.data)}</div>}
+                {!isMobile && <div style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:12, color:T.txt3, paddingRight:14, whiteSpace:'nowrap' }}>{fmtD(t.data)}</div>}
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:cor, whiteSpace:'nowrap' }}>{sinal}{fmt(t.valor)}</span>
+                  <span style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:13, color:cor, whiteSpace:'nowrap' }}>{sinal}{fmt(t.valor)}</span>
                   <div style={{ display:'flex', gap:4 }}>
                     <button onClick={() => onEdit(t)} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', padding:'2px 4px', display:'flex' }} title="Editar"><Icon n="edit" s={13} /></button>
                     <button onClick={() => { if (window.confirm('Excluir esta movimentação?')) onDelete(t.id); }} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', padding:'2px 4px', display:'flex' }} title="Excluir"><Icon n="trash" s={13} /></button>

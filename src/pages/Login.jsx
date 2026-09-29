@@ -24,11 +24,11 @@ export default function Login({ erroInicial = '' }) {
     <div style={{
       position: 'fixed', inset: 0, background: T.bg, display: 'flex',
       alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Sora', sans-serif",
     }}>
       {/* Logo */}
       <div style={{ marginBottom: 48, textAlign: 'center' }}>
-        <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 48, fontWeight: 800, letterSpacing: -3, lineHeight: 1 }}>
+        <div style={{ fontFamily: "'Sora', sans-serif", fontSize: 48, fontWeight: 800, letterSpacing: -3, lineHeight: 1 }}>
           <span style={{ color: T.txt }}>YF</span><span style={{ color: T.green }}>Finance</span>
         </div>
         <div style={{ fontSize: 12, color: T.txt3, letterSpacing: 4, textTransform: 'uppercase', marginTop: 8 }}>
@@ -41,7 +41,7 @@ export default function Login({ erroInicial = '' }) {
         background: T.bg2, border: `1px solid ${T.border2}`, borderRadius: 18,
         padding: '36px 40px', width: 340, maxWidth: '90vw', textAlign: 'center',
       }}>
-        <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 700, color: T.txt, margin: '0 0 8px' }}>
+        <h2 style={{ fontFamily: "'Sora', sans-serif", fontSize: 20, fontWeight: 700, color: T.txt, margin: '0 0 8px' }}>
           Entrar
         </h2>
         <p style={{ fontSize: 13, color: T.txt3, margin: '0 0 28px', lineHeight: 1.5 }}>
@@ -55,7 +55,7 @@ export default function Login({ erroInicial = '' }) {
             width: '100%', padding: '12px 20px', borderRadius: T.radius2,
             background: loading ? T.bg3 : '#fff', color: '#1a1a1a',
             border: `1px solid ${T.border2}`, cursor: loading ? 'not-allowed' : 'pointer',
-            fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600,
+            fontFamily: "'Sora', sans-serif", fontSize: 14, fontWeight: 600,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             transition: 'opacity .2s',
             opacity: loading ? 0.6 : 1,

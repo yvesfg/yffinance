@@ -20,7 +20,7 @@ function fg(label, children) {
   );
 }
 
-const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '9px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans', sans-serif", fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' };
+const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '9px 12px', borderRadius: T.radius2, fontFamily: "'Sora', sans-serif", fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' };
 
 export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats, onCreateConta, onCreateCategoria, editData }) {
   const [tipo, setTipo]   = useState('despesa');
@@ -82,7 +82,7 @@ export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats
     <div onClick={onClose} style={{ display:'flex', position:'fixed', inset:0, background:'rgba(0,0,0,.65)', zIndex:1000, backdropFilter:'blur(6px)', justifyContent:'center', alignItems:'center' }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.bg2, border: `1px solid ${T.border2}`, borderRadius: 18, padding: 26, width: 560, maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 20 }}>
-          <h3 style={{ fontFamily:"'Syne',sans-serif", fontSize:19, fontWeight:700, color:T.txt, margin:0 }}>{editData ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>
+          <h3 style={{ fontFamily:"'Sora',sans-serif", fontSize:19, fontWeight:700, color:T.txt, margin:0 }}>{editData ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>
           <button onClick={onClose} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', fontSize:18 }}>✕</button>
         </div>
 
@@ -92,7 +92,7 @@ export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats
             <button key={t.v} onClick={() => setTipo(t.v)} style={{
               flex:1, padding:'7px 4px', border: tipo===t.v ? `1px solid ${t.c}40` : '1px solid transparent',
               background: tipo===t.v ? `${t.c}20` : 'transparent', color: tipo===t.v ? t.c : T.txt3,
-              borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:500, fontFamily:"'DM Sans',sans-serif",
+              borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:500, fontFamily:"'Sora',sans-serif",
               transition:'all .12s',
             }}>{t.l}</button>
           ))}
@@ -111,8 +111,8 @@ export default function ModalLanc({ open, onClose, onSave, contas, cartoes, cats
         </div>
 
         <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:20, paddingTop:16, borderTop:`1px solid ${T.border}` }}>
-          <button onClick={onClose} style={{ padding:'9px 18px', background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, borderRadius:T.radius2, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13 }}>Cancelar</button>
-          <button onClick={handleSave} disabled={busy} style={{ padding:'9px 18px', background: busy ? T.bg3 : T.green, color: busy ? T.txt3 : '#000', borderRadius:T.radius2, border:'none', cursor: busy ? 'not-allowed' : 'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600 }}>{busy ? 'Salvando...' : 'Salvar'}</button>
+          <button onClick={onClose} style={{ padding:'9px 18px', background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, borderRadius:T.radius2, cursor:'pointer', fontFamily:"'Sora',sans-serif", fontSize:13 }}>Cancelar</button>
+          <button onClick={handleSave} disabled={busy} style={{ padding:'9px 18px', background: busy ? T.bg3 : T.green, color: busy ? T.txt3 : '#000', borderRadius:T.radius2, border:'none', cursor: busy ? 'not-allowed' : 'pointer', fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:600 }}>{busy ? 'Salvando...' : 'Salvar'}</button>
         </div>
       </div>
     </div>

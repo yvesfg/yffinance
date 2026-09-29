@@ -37,7 +37,7 @@ const rotuloMes = ym => {
 
 const inp = {
   background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt,
-  padding: '9px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans',sans-serif",
+  padding: '9px 12px', borderRadius: T.radius2, fontFamily: "'Sora',sans-serif",
   fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box',
 };
 
@@ -545,8 +545,8 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
   };
 
   return (
-    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'DM Sans',sans-serif", maxWidth: 700 }}>
-      <h2 style={{ fontFamily: "'Syne',sans-serif", fontSize: 24, fontWeight: 700, color: T.txt, margin: '0 0 20px', letterSpacing: -.5 }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'Sora',sans-serif", maxWidth: 700 }}>
+      <h2 style={{ fontFamily: "'Sora',sans-serif", fontSize: 24, fontWeight: 700, color: T.txt, margin: '0 0 20px', letterSpacing: -.5 }}>
         Importar Extrato
       </h2>
 
@@ -556,7 +556,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
           {[['conta', '🏦 Extrato de conta'], ['cartao', '💳 Fatura de cartão']].map(([v, l]) => (
             <button key={v} onClick={() => setDestino(v)} style={{
               flex: 1, padding: '8px 4px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600,
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: "'Sora',sans-serif",
               border: destino === v ? `1px solid ${T.green}40` : '1px solid transparent',
               background: destino === v ? `${T.green}20` : 'transparent',
               color: destino === v ? T.green : T.txt3,
@@ -592,7 +592,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
           <input ref={fileRef} type="file" accept=".csv,.ofx,.txt,.xlsx,.xls,.pdf,image/*" multiple style={{ display: 'none' }} onChange={handleFile} />
           <div style={{ fontSize: 28, marginBottom: 8 }}>{lendoIA ? '🤖' : '📂'}</div>
           {lendoIA
-            ? <><div style={{ fontSize: 13, color: T.txt }}>Lendo {lendoIA.arquivo} com IA… <span style={{ fontFamily: "'JetBrains Mono',monospace", color: T.txt3 }}>{lendoSegundos}s</span></div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{lendoIA.total ? `página ${Math.min(lendoIA.feito + 1, lendoIA.total)} de ${lendoIA.total}` : 'preparando páginas'} · cada página pode levar perto de 1 minuto</div></>
+            ? <><div style={{ fontSize: 13, color: T.txt }}>Lendo {lendoIA.arquivo} com IA… <span style={{ fontFamily: "'IBM Plex Mono',monospace", color: T.txt3 }}>{lendoSegundos}s</span></div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{lendoIA.total ? `página ${Math.min(lendoIA.feito + 1, lendoIA.total)} de ${lendoIA.total}` : 'preparando páginas'} · cada página pode levar perto de 1 minuto</div></>
             : arquivos.length
             ? <><div style={{ fontSize: 13, color: T.txt }}>{arquivos.length === 1 ? arquivos[0].nome : `${arquivos.length} arquivos`}</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{txsParsed.length} transações lidas{arquivos.some(a => a.ia) ? ' (via IA)' : ''}{mesesDetectados.length ? ` · ${mesesDetectados.length} ${mesesDetectados.length === 1 ? 'mês' : 'meses'}` : ''}</div></>
             : <><div style={{ fontSize: 13, color: T.txt2 }}>Clique para selecionar (vários de uma vez) ou arraste aqui</div><div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>CSV, OFX e XLSX são lidos na hora; PDF, foto e print do {noCartao ? 'da fatura' : 'extrato'} são lidos por IA</div></>
@@ -652,7 +652,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
                     )}
                     {/* O sinal segue o SENTIDO, não o tipo: "Pix recebido" é
                         transferência e entrava aqui como -R$ em vermelho. */}
-                    <span style={{ fontFamily: "'JetBrains Mono',monospace", color: (t.sentido || (t.tipo === 'receita' ? 'entrada' : 'saida')) === 'entrada' ? T.green : T.red, flexShrink: 0 }}>
+                    <span style={{ fontFamily: "'IBM Plex Mono',monospace", color: (t.sentido || (t.tipo === 'receita' ? 'entrada' : 'saida')) === 'entrada' ? T.green : T.red, flexShrink: 0 }}>
                       {(t.sentido || (t.tipo === 'receita' ? 'entrada' : 'saida')) === 'entrada' ? '+' : '-'}{fmt(t.valor)}
                     </span>
                   </div>
@@ -673,7 +673,7 @@ export default function Importar({ contas, cartoes = [], cats, perfil, onToast, 
         <button
           onClick={handleImportar}
           disabled={!destinoId || !txsParsed.length || importando || !!lendoIA}
-          style={{ width: '100%', padding: '11px', background: (!destinoId || !txsParsed.length || importando || lendoIA) ? T.bg3 : T.green, color: (!destinoId || !txsParsed.length || importando || lendoIA) ? T.txt3 : '#000', border: 'none', borderRadius: T.radius2, cursor: (!destinoId || !txsParsed.length || importando || lendoIA) ? 'not-allowed' : 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 600 }}
+          style={{ width: '100%', padding: '11px', background: (!destinoId || !txsParsed.length || importando || lendoIA) ? T.bg3 : T.green, color: (!destinoId || !txsParsed.length || importando || lendoIA) ? T.txt3 : '#000', border: 'none', borderRadius: T.radius2, cursor: (!destinoId || !txsParsed.length || importando || lendoIA) ? 'not-allowed' : 'pointer', fontFamily: "'Sora',sans-serif", fontSize: 14, fontWeight: 600 }}
         >
           {importando ? 'Importando...' : 'Importar'}
         </button>

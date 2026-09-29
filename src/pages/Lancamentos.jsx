@@ -6,7 +6,7 @@ import { T } from '../constants.js';
 import { fmt, fmtD } from '../lib/formatters.js';
 import Icon, { CategoriaIcon } from '../components/Icon.jsx';
 
-const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box', width: '100%' };
+const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '8px 12px', borderRadius: T.radius2, fontFamily: "'Sora',sans-serif", fontSize: 13, outline: 'none', boxSizing: 'border-box', width: '100%' };
 
 const TIPO_INFO = {
   despesa:       { label:'↓ Despesa',       color: T.red,    bg: T.redGlow },
@@ -30,12 +30,12 @@ export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit,
   const contaNome = id => contas.find(c => c.id === id)?.nome || cartoes.find(c => c.id === id)?.nome || '';
 
   return (
-    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily:"'Sora',sans-serif" }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-        <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Lançamentos</h2>
+        <h2 style={{ fontFamily:"'Sora',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Lançamentos</h2>
         <div style={{ display:'flex', gap:10, alignItems:'center' }}>
           <PeriodoSelect value={periodo} onChange={setPeriodo} />
-          <button onClick={onNew} style={{ background:T.green, color:'#000', border:'none', borderRadius:T.radius2, padding:'8px 16px', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600 }}>+ Novo</button>
+          <button onClick={onNew} style={{ background:T.gold, color:'#000', border:'none', borderRadius:T.radius2, padding:'8px 16px', cursor:'pointer', fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:600 }}>+ Novo</button>
         </div>
       </div>
 
@@ -48,7 +48,7 @@ export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit,
             <button key={t} onClick={() => setFiltTipo(t)} style={{
               padding:'5px 10px', whiteSpace:'nowrap', flexShrink:0, border: filtTipo===t?`1px solid ${T.border3}`:'1px solid transparent',
               background: filtTipo===t?T.bg4:'transparent', color: filtTipo===t?T.txt:T.txt2,
-              borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:"'DM Sans',sans-serif", textTransform:'capitalize',
+              borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:"'Sora',sans-serif", textTransform:'capitalize',
             }}>{t === 'todos' ? 'Todos' : TIPO_INFO[t]?.label || t}</button>
           ))}
         </div>
@@ -57,7 +57,7 @@ export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit,
             <button key={s} onClick={() => setFiltStatus(s)} style={{
               padding:'5px 10px', whiteSpace:'nowrap', flexShrink:0, border: filtStatus===s?`1px solid ${T.border3}`:'1px solid transparent',
               background: filtStatus===s?T.bg4:'transparent', color: filtStatus===s?T.txt:T.txt2,
-              borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:"'DM Sans',sans-serif", textTransform:'capitalize',
+              borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:"'Sora',sans-serif", textTransform:'capitalize',
             }}>{s === 'todos' ? 'Todos' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
           ))}
         </div>
@@ -93,7 +93,7 @@ export default function Lancamentos({ txs, contas, cats, cartoes, onNew, onEdit,
                       {t.status === 'pendente' && (
                         <span style={{ fontSize:10, background:T.goldGlow, color:T.gold, borderRadius:4, padding:'2px 6px', fontWeight:600 }}>pendente</span>
                       )}
-                      <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:info.color, flexShrink:0 }}>
+                      <span style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:13, color:info.color, flexShrink:0 }}>
                         {t.tipo==='receita'?'+':t.tipo==='transferencia'?'±':'-'}{fmt(t.valor)}
                       </span>
                       <div style={{ display:'flex', gap:4, flexShrink:0 }}>

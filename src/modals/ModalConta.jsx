@@ -4,7 +4,7 @@ import { useModalKeys } from '../lib/useModalKeys.js';
 import ColorField from '../components/ColorField.jsx';
 import BankLogo from '../components/BankLogo.jsx';
 
-const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '9px 12px', borderRadius: T.radius2, fontFamily: "'DM Sans', sans-serif", fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' };
+const inp = { background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt, padding: '9px 12px', borderRadius: T.radius2, fontFamily: "'Sora', sans-serif", fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' };
 const fg = (label, children) => (
   <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
     <label style={{ fontSize:11, color:T.txt3, fontWeight:600, textTransform:'uppercase', letterSpacing:.5 }}>{label}</label>
@@ -51,7 +51,7 @@ export default function ModalConta({ open, onClose, onSave, editData }) {
     <div onClick={onClose} style={{ display:'flex', position:'fixed', inset:0, background:'rgba(0,0,0,.65)', zIndex:1000, backdropFilter:'blur(6px)', justifyContent:'center', alignItems:'center' }}>
       <div onClick={e => e.stopPropagation()} style={{ background:T.bg2, border:`1px solid ${T.border2}`, borderRadius:18, padding:26, width:420, maxWidth:'95vw', maxHeight:'90vh', overflowY:'auto' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <h3 style={{ fontFamily:"'Syne',sans-serif", fontSize:19, fontWeight:700, color:T.txt, margin:0 }}>{editData ? 'Editar Conta' : 'Nova Conta'}</h3>
+          <h3 style={{ fontFamily:"'Sora',sans-serif", fontSize:19, fontWeight:700, color:T.txt, margin:0 }}>{editData ? 'Editar Conta' : 'Nova Conta'}</h3>
           <button onClick={onClose} style={{ background:'transparent', border:'none', color:T.txt3, cursor:'pointer', fontSize:18 }}>✕</button>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
@@ -68,8 +68,8 @@ export default function ModalConta({ open, onClose, onSave, editData }) {
           )}</div>
         </div>
         <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:20, paddingTop:16, borderTop:`1px solid ${T.border}` }}>
-          <button onClick={onClose} style={{ padding:'9px 18px', background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, borderRadius:T.radius2, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13 }}>Cancelar</button>
-          <button onClick={handleSave} disabled={busy || !nome.trim()} style={{ padding:'9px 18px', background: (busy || !nome.trim()) ? T.bg3 : T.green, color: (busy || !nome.trim()) ? T.txt3 : '#000', borderRadius:T.radius2, border:'none', cursor: (busy || !nome.trim()) ? 'not-allowed' : 'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600 }}>{busy ? 'Salvando...' : 'Salvar'}</button>
+          <button onClick={onClose} style={{ padding:'9px 18px', background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, borderRadius:T.radius2, cursor:'pointer', fontFamily:"'Sora',sans-serif", fontSize:13 }}>Cancelar</button>
+          <button onClick={handleSave} disabled={busy || !nome.trim()} style={{ padding:'9px 18px', background: (busy || !nome.trim()) ? T.bg3 : T.green, color: (busy || !nome.trim()) ? T.txt3 : '#000', borderRadius:T.radius2, border:'none', cursor: (busy || !nome.trim()) ? 'not-allowed' : 'pointer', fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:600 }}>{busy ? 'Salvando...' : 'Salvar'}</button>
         </div>
       </div>
     </div>

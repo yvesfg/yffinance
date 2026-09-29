@@ -34,7 +34,7 @@ export default function TopBar({ title, onMenuClick }) {
         </button>
       )}
       <h2 style={{
-        fontFamily: "'Syne', sans-serif", fontSize: isMobile ? 16 : 18, fontWeight: 700,
+        fontFamily: "'Sora', sans-serif", fontSize: isMobile ? 16 : 18, fontWeight: 700,
         color: T.txt, margin: 0, letterSpacing: '-.3px',
       }}>
         {title}

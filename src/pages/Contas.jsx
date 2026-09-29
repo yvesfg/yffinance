@@ -18,13 +18,13 @@ export default function Contas({ contas, txs, periodo, onAbrir, onNew, onEdit, o
   const TIPOS_LABEL = { corrente:'Conta Corrente', poupanca:'Poupança', investimento:'Investimento', carteira:'Carteira', outro:'Outro' };
 
   return (
-    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily:"'Sora',sans-serif" }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
         <div>
-          <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Contas</h2>
-          <p style={{ fontSize:12, color:T.txt3, marginTop:3 }}>Saldo total: <span style={{ fontFamily:"'JetBrains Mono',monospace", color: saldoTotal>=0?T.green:T.red }}>{fmt(saldoTotal)}</span></p>
+          <h2 style={{ fontFamily:"'Sora',sans-serif", fontSize:24, fontWeight:700, color:T.txt, margin:0, letterSpacing:-.5 }}>Contas</h2>
+          <p style={{ fontSize:12, color:T.txt3, marginTop:3 }}>Saldo total: <span style={{ fontFamily:"'IBM Plex Mono',monospace", color: saldoTotal>=0?T.green:T.red }}>{fmt(saldoTotal)}</span></p>
         </div>
-        <button onClick={onNew} style={{ background:T.green, color:'#000', border:'none', borderRadius:T.radius2, padding:'9px 18px', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600 }}>+ Nova Conta</button>
+        <button onClick={onNew} style={{ background:T.gold, color:'#000', border:'none', borderRadius:T.radius2, padding:'9px 18px', cursor:'pointer', fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:600 }}>+ Nova Conta</button>
       </div>
 
       {contas.length === 0
@@ -57,7 +57,7 @@ export default function Contas({ contas, txs, periodo, onAbrir, onNew, onEdit, o
                       <button onClick={() => { if (window.confirm('Excluir esta conta? Lançamentos vinculados não serão excluídos.')) onDelete(c.id); }} style={{ background:T.bg3, border:`1px solid ${T.border2}`, color:T.txt2, width:28, height:28, borderRadius:T.radius3, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
                     </div>
                   </div>
-                  <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:22, fontWeight:500, color: saldo>=0?T.green:T.red, marginBottom:8 }}>{fmt(saldo)}</div>
+                  <div style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:22, fontWeight:500, color: saldo>=0?T.green:T.red, marginBottom:8 }}>{fmt(saldo)}</div>
                   <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:T.txt3 }}>
                     <span>Saldo inicial: {fmt(c.saldo_inicial)}</span>
                     <span>{txCount} movimentações</span>

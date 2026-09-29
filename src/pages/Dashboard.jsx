@@ -38,10 +38,10 @@ function StatCard({ label, value, color, sub, accent, trend, deltaPct, deltaLabe
         <div style={{ fontSize: 10, color: T.txt3, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>{label}</div>
         {trend && <Sparkline data={trend} />}
       </div>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 500, color }}>{value}</div>
+      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 20, fontWeight: 500, color }}>{value}</div>
       <div style={{ fontSize: 11, color: T.txt3, marginTop: 6 }}>{sub}</div>
       {deltaPct != null && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: "'JetBrains Mono',monospace", marginTop: 6, color: deltaPct >= 0 ? T.green : T.red }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", marginTop: 6, color: deltaPct >= 0 ? T.green : T.red }}>
           <span>{deltaPct >= 0 ? '↑' : '↓'} {Math.abs(deltaPct).toFixed(0)}%</span>
           <span style={{ color: T.txt3 }}>{deltaLabel || 'vs mês anterior'}</span>
         </div>
@@ -142,16 +142,16 @@ export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesA
 
   const topCats = saidasPorCategoria(txs, cats, regime).slice(0, 6);
   const totalCat = topCats.reduce((s, [, v]) => s + v, 0) || 1;
-  const CORES = ['#f04f6e','#f97316','#f7c645','#4d8eff','#9b6dff','#05d49b'];
+  const CORES = ['#ef6a5b','#f97316','#f2c14e','#4d8eff','#9b6dff','#4fbf8b'];
 
   const ultimas = txs.slice(0, 8);
 
   return (
-    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'Sora', sans-serif" }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 700, color: T.txt, margin: 0, letterSpacing: -.5 }}>Dashboard</h2>
+          <h2 style={{ fontFamily: "'Sora', sans-serif", fontSize: 24, fontWeight: 700, color: T.txt, margin: 0, letterSpacing: -.5 }}>Dashboard</h2>
           <p style={{ fontSize: 12, color: T.txt3, marginTop: 3 }}>{perfil === 'pessoal' ? 'Finanças pessoais' : 'YFGroup Transportes'} · {rotuloPeriodo(periodo)}</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -178,17 +178,17 @@ export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesA
         <div style={{ flex: 1, minWidth: 180, display: 'flex', gap: 22, flexWrap: 'wrap' }}>
           <div>
             <span style={{ fontSize: 11, color: T.txt3 }}>Saídas previstas </span>
-            <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 14, color: T.red }}>{fmt(prev.saidas)}</span>
+            <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 14, color: T.red }}>{fmt(prev.saidas)}</span>
           </div>
           {prev.entradas > 0 && (
             <div>
               <span style={{ fontSize: 11, color: T.txt3 }}>Entradas previstas </span>
-              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 14, color: T.green }}>{fmt(prev.entradas)}</span>
+              <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 14, color: T.green }}>{fmt(prev.entradas)}</span>
             </div>
           )}
           <div>
             <span style={{ fontSize: 11, color: T.txt3 }}>Resultado previsto </span>
-            <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 14, color: (prev.entradas - prev.saidas) >= 0 ? T.green : T.red }}>{((prev.entradas - prev.saidas) >= 0 ? '+' : '') + fmt(prev.entradas - prev.saidas)}</span>
+            <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 14, color: (prev.entradas - prev.saidas) >= 0 ? T.green : T.red }}>{((prev.entradas - prev.saidas) >= 0 ? '+' : '') + fmt(prev.entradas - prev.saidas)}</span>
           </div>
         </div>
         <div style={{ fontSize: 11, color: T.txt3 }}>
@@ -209,7 +209,7 @@ export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesA
                   style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:`1px solid ${T.border}`, cursor:'pointer' }}>
                   <BankLogo slug={c.banco_slug} url={c.logo_url} size={26} />
                   <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: T.txt, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.nome}</div>
-                  <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color: s >= 0 ? T.green : T.red }}>{fmt(s)}</div>
+                  <div style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:13, color: s >= 0 ? T.green : T.red }}>{fmt(s)}</div>
                 </div>
               );
             })
@@ -228,7 +228,7 @@ export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesA
                 <div style={{ width:80, height:4, background:T.bg3, borderRadius:99, overflow:'hidden', flexShrink:0 }}>
                   <div style={{ height:'100%', width:`${Math.round(val/totalCat*100)}%`, background:CORES[i%6], borderRadius:99 }} />
                 </div>
-                <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12, color:T.txt2, width:72, textAlign:'right', flexShrink:0 }}>{fmt(val)}</div>
+                <div style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:12, color:T.txt2, width:72, textAlign:'right', flexShrink:0 }}>{fmt(val)}</div>
               </div>
             ))
           }
@@ -253,7 +253,7 @@ export default function Dashboard({ txs, contas, cats, periodo, setPeriodo, mesA
                   <div style={{ fontSize:13, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', color:T.txt }}>{t.descricao}</div>
                   <div style={{ fontSize:11, color:T.txt3, marginTop:1 }}>{fmtD(t.data)}{cat?` · ${cat.nome}`:''}</div>
                 </div>
-                <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:cor, flexShrink:0 }}>{sinal}{fmt(t.valor)}</div>
+                <div style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:13, color:cor, flexShrink:0 }}>{sinal}{fmt(t.valor)}</div>
               </div>
             );
           })

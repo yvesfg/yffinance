@@ -222,7 +222,7 @@ export default function App() {
   // Aguardar verificação de sessão
   if (session === undefined) return (
     <div style={{ position:'fixed', inset:0, background:T.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
-      <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:T.txt3 }}>carregando...</div>
+      <div style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:13, color:T.txt3 }}>carregando...</div>
     </div>
   );
 
@@ -272,7 +272,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ display:'flex', height:'100dvh', overflow:'hidden', background:T.bg, fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ display:'flex', height:'100dvh', overflow:'hidden', background:T.bg, fontFamily:"'Sora',sans-serif" }}>
       <Sidebar
         pagina={pagina}
         setPagina={p => { setPagina(p); setDetalhe(null); setSideOpen(false); }}

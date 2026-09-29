@@ -9,10 +9,10 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 40, fontFamily: 'monospace', background: '#08090d', color: '#f04f6e', minHeight: '100vh' }}>
-          <h2 style={{ color: '#05d49b' }}>YFFinance — Erro de Inicialização</h2>
+        <div style={{ padding: 40, fontFamily: "'IBM Plex Mono',monospace", background: '#08090d', color: '#ef6a5b', minHeight: '100vh' }}>
+          <h2 style={{ color: '#4fbf8b' }}>YFFinance — Erro de Inicialização</h2>
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{String(this.state.error)}</pre>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, color: '#7b85a0' }}>{this.state.error?.stack}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, color: '#8d929c' }}>{this.state.error?.stack}</pre>
         </div>
       );
     }

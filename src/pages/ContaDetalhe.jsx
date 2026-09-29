@@ -11,7 +11,7 @@ import Icon, { CategoriaIcon } from '../components/Icon.jsx';
 const Card = ({ label, valor, cor, sub }) => (
   <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: '14px 16px' }}>
     <div style={{ fontSize: 10, color: T.txt3, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>{label}</div>
-    <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 18, fontWeight: 500, color: cor }}>{valor}</div>
+    <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 18, fontWeight: 500, color: cor }}>{valor}</div>
     {sub && <div style={{ fontSize: 11, color: T.txt3, marginTop: 4 }}>{sub}</div>}
   </div>
 );
@@ -62,13 +62,13 @@ export default function ContaDetalhe({ conta, txs, contas, cats, periodo, setPer
   const contaNome = id => contas.find(c => c.id === id)?.nome || '';
 
   return (
-    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'DM Sans',sans-serif" }}>
+    <div style={{ padding: isMobile ? '16px 14px' : '24px 28px', fontFamily: "'Sora',sans-serif" }}>
       {/* Cabeçalho */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
-        <button onClick={onVoltar} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: T.radius3, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans',sans-serif", display: 'flex', alignItems: 'center', gap: 5 }}><Icon n="chevron-left" s={13} /> Contas</button>
+        <button onClick={onVoltar} style={{ background: T.bg3, border: `1px solid ${T.border2}`, color: T.txt2, borderRadius: T.radius3, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontFamily: "'Sora',sans-serif", display: 'flex', alignItems: 'center', gap: 5 }}><Icon n="chevron-left" s={13} /> Contas</button>
         <BankLogo slug={conta.banco_slug} url={conta.logo_url} size={32} />
         <div style={{ flex: 1, minWidth: 120 }}>
-          <h2 style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 700, color: T.txt, margin: 0, letterSpacing: -.3 }}>{conta.nome}</h2>
+          <h2 style={{ fontFamily: "'Sora',sans-serif", fontSize: 20, fontWeight: 700, color: T.txt, margin: 0, letterSpacing: -.3 }}>{conta.nome}</h2>
           <div style={{ fontSize: 11, color: T.txt3 }}>{conta.banco} · {conta.tipo}</div>
         </div>
         <PeriodoSelect value={periodo} onChange={setPeriodo} />
@@ -112,7 +112,7 @@ export default function ContaDetalhe({ conta, txs, contas, cats, periodo, setPer
                     ].filter(Boolean).map((node, i) => <React.Fragment key={i}>{i > 0 && <span>·</span>}{node}</React.Fragment>)}
                   </div>
                 </div>
-                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: cor, whiteSpace: 'nowrap' }}>
+                <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 13, color: cor, whiteSpace: 'nowrap' }}>
                   {entrou ? '+' : '-'}{fmt(t.valor)}
                 </span>
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
