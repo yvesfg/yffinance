@@ -50,11 +50,11 @@ function downscaleImage(dataUrl, maxPx = 1800, quality = 0.85) {
 async function pdfParaImagens(file, { maxPaginas = MAX_PAGINAS, maxPx = 1800, quality = 0.85 } = {}) {
   // Import dinâmico: pdfjs-dist é pesado (~1,4 MB) e só entra no bundle de
   // quem realmente abre um PDF.
-  const pdfjsLib = await import('pdfjs-dist');
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs'); // legacy: o build padrão do pdfjs 6 quebra em Chrome/Edge de 2025
   pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
   const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buf, standardFontDataUrl: '/pdf-standard-fonts/' }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: buf, standardFontDataUrl: '/pdf-standard-fonts/', useWasm: false, wasmUrl: '/pdf-wasm/' }).promise;
 
   const total = Math.min(pdf.numPages, maxPaginas);
   const imagens = [];
@@ -66,7 +66,7 @@ async function pdfParaImagens(file, { maxPaginas = MAX_PAGINAS, maxPx = 1800, qu
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(viewport.width);
     canvas.height = Math.round(viewport.height);
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    await page.render({ canvas, viewport }).promise;
     imagens.push(canvas.toDataURL('image/jpeg', quality));
   }
   return { imagens, paginasIgnoradas: Math.max(0, pdf.numPages - total) };
