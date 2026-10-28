@@ -9,6 +9,8 @@
 //    AI_HUB_TOKEN  precisa bater com AI_TOKEN_YFFINANCE no gateway
 // ─────────────────────────────────────────────────────────
 
+import { exigirLogin } from "./_auth.js";
+
 // Página de extrato renderizada em JPEG passa fácil de 1 MB; o default da
 // Vercel (1mb) recusaria o corpo.
 export const config = { api: { bodyParser: { sizeLimit: "8mb" } } };
@@ -18,6 +20,7 @@ export default async function handler(req, res) {
     res.status(405).json({ error: "Método não permitido" });
     return;
   }
+  if (!(await exigirLogin(req, res))) return; // só usuário logado gasta IA (api/_auth.js)
   const url = process.env.AI_HUB_URL || "https://yf-ai-gateway.vercel.app/api/extract";
   const hubToken = process.env.AI_HUB_TOKEN || "";
   if (!hubToken) {

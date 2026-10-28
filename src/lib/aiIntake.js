@@ -8,6 +8,7 @@
 
 import { ehTransferencia } from './parsers.js';
 import { detectParcela } from './parcelas.js';
+import { supabase } from './supabaseClient.js';
 
 export const MAX_PAGINAS = 12;   // fatura/extrato mensal não passa disso
 export const MAX_MB = 12;
@@ -73,9 +74,12 @@ async function pdfParaImagens(file, { maxPaginas = MAX_PAGINAS, maxPx = 1800, qu
 }
 
 async function chamarGateway(image) {
+  // O proxy só atende quem está logado (api/_auth.js confere o JWT).
+  const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+  const jwt = data?.session?.access_token;
   const r = await fetch('/api/ai-extract', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
     body: JSON.stringify({ profile: 'extrato_financeiro', image, mimeType: 'image/jpeg' }),
   });
   if (!r.ok) {
